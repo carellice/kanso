@@ -50,6 +50,8 @@ object Chrono {
         if (n.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)) {
             return ChronoInfo(sbn.key, sbn.packageName, n.extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN), n.`when`, null)
         }
+        // Google Orologio su Android recenti: MetricStyle, il tempo sta in «android.metrics».
+        metric(sbn, !stopwatchHint)?.let { return it }
         // Google Orologio e AOSP disegnano un Chronometer dentro una vista personalizzata: la gonfio e lo leggo.
         val views = inflate(c, sbn)
         views.firstNotNullOfOrNull { findChrono(it) }?.let { chrono ->
@@ -64,6 +66,73 @@ object Chrono {
         // Ultima risorsa: una notifica in corso dell'Orologio è un timer o un cronometro; si mostra con il suo titolo.
         val shown = time ?: texts.firstOrNull()?.take(24) ?: if (stopwatchHint) "Cronometro" else "Timer"
         return ChronoInfo(sbn.key, sbn.packageName, !stopwatchHint, 0, shown)
+    }
+
+    /**
+     * Legge timer e cronometro da Notification.MetricStyle (Android 17), senza dipendere dalle sue classi:
+     * l'SDK usato per compilare non le ha ancora. Si cerca un istante (fine del timer o inizio del cronometro)
+     * e un'eventuale durata in pausa tra i valori delle metriche.
+     */
+    private fun metric(sbn: StatusBarNotification, countDown: Boolean): ChronoInfo? {
+        val n = sbn.notification
+        val raw = n.extras.get(EXTRA_METRICS) ?: return null
+        val values = mutableListOf<Pair<String, Any>>()
+        leaves("", raw, values, 0)
+        if (values.isEmpty()) return null
+        val now = System.currentTimeMillis()
+        val up = SystemClock.elapsedRealtime()
+        val running = pausable(n)
+        val paused = values.firstNotNullOfOrNull { (k, v) -> if (PausedKey.containsMatchIn(k)) millis(v) else null }
+        // Un istante vicino a ora: in millisecondi o secondi dal 1970, oppure in tempo dall'accensione.
+        val instants = values.mapNotNull { (k, v) ->
+            if (PausedKey.containsMatchIn(k)) return@mapNotNull null
+            val l = (v as? java.time.Instant)?.toEpochMilli() ?: (v as? Number)?.toLong() ?: return@mapNotNull null
+            when {
+                kotlin.math.abs(l - now) < MONTH -> l
+                kotlin.math.abs(l * 1000 - now) < MONTH -> l * 1000
+                (ElapsedKey.containsMatchIn(k) || l > up / 2) && l in 1..(up + MONTH) -> now - (up - l)
+                else -> null
+            }
+        }
+        val zero = (if (countDown) instants.maxOrNull() else instants.minOrNull())
+        if (running && zero != null) {
+            // Il cronometro non conta il tempo passato in pausa.
+            val base = if (!countDown && paused != null && paused > 0) zero + paused else zero
+            return ChronoInfo(sbn.key, sbn.packageName, countDown, base, null)
+        }
+        // In pausa: il tempo fermo, se c'è come durata; altrimenti quello che manca o che è passato dall'istante.
+        val frozenMs = paused?.takeIf { it > 0 } ?: zero?.let { if (countDown) it - now else now - it } ?: return null
+        return ChronoInfo(sbn.key, sbn.packageName, countDown, 0, format(frozenMs))
+    }
+
+    private const val EXTRA_METRICS = "android.metrics"
+    private const val MONTH = 30L * 86_400_000L
+    private val PausedKey = Regex("pause|duration|remaining|elapsedtime", RegexOption.IGNORE_CASE)
+    private val ElapsedKey = Regex("elapsed|realtime|zero|base", RegexOption.IGNORE_CASE)
+
+    private fun millis(v: Any): Long? = (v as? java.time.Duration)?.toMillis() ?: (v as? Number)?.toLong()
+
+    fun format(ms: Long): String {
+        val s = kotlin.math.abs(ms) / 1000
+        val sign = if (ms < 0 && s > 0) "-" else ""
+        return sign + if (s >= 3600) "${s / 3600}:${"%02d".format(s / 60 % 60)}:${"%02d".format(s % 60)}" else "${s / 60}:${"%02d".format(s % 60)}"
+    }
+
+    /** Tutti i valori dentro bundle, array e oggetti del framework, con il percorso dei nomi. */
+    @Suppress("DEPRECATION")
+    private fun leaves(path: String, v: Any?, out: MutableList<Pair<String, Any>>, depth: Int) {
+        if (v == null || depth > 6) return
+        when (v) {
+            is android.os.Bundle -> v.keySet().forEach { k -> leaves("$path/$k", runCatching { v.get(k) }.getOrNull(), out, depth + 1) }
+            is Array<*> -> v.forEachIndexed { i, x -> leaves("$path[$i]", x, out, depth + 1) }
+            is Iterable<*> -> v.forEachIndexed { i, x -> leaves("$path[$i]", x, out, depth + 1) }
+            is Number, is Boolean, is CharSequence, is java.time.Instant, is java.time.Duration -> out += path to v
+            else -> if (v.javaClass.name.startsWith("android.app.Notification")) {
+                // Le classi nuove (es. Notification.Metric) si leggono dai loro getter pubblici.
+                v.javaClass.methods.filter { it.parameterCount == 0 && (it.name.startsWith("get") || it.name.startsWith("is")) && it.name != "getClass" }
+                    .forEach { m -> leaves("$path/${m.name}", runCatching { m.invoke(v) }.getOrNull(), out, depth + 1) }
+            } else out += path to v.toString()
+        }
     }
 
     private val Skip = Regex("svegli|alarm|dormi|bedtime|riposo|sleep", RegexOption.IGNORE_CASE)
@@ -106,6 +175,12 @@ object Chrono {
                 if (errors.isNotEmpty()) appendLine("errori: ${errors.joinToString(" | ")}")
                 appendLine("Chronometer=${inflated.firstNotNullOfOrNull { findChrono(it) } != null} · testi=${inflated.flatMap { viewTexts(it) }.take(6)}")
                 appendLine("letto come: ${runCatching { read(c, sbn) }.getOrElse { it.toString() }}")
+                n.extras.get(EXTRA_METRICS)?.let { raw ->
+                    val values = mutableListOf<Pair<String, Any>>()
+                    runCatching { leaves("", raw, values, 0) }
+                    appendLine("metriche (ora=${System.currentTimeMillis()}, accensione=${SystemClock.elapsedRealtime()}):")
+                    values.take(40).forEach { (k, v) -> appendLine("  $k = ${v.toString().take(60)} (${v.javaClass.simpleName})") }
+                }
                 append(extras)
             }
         }

@@ -210,11 +210,7 @@ private fun ChronoChip(c: ChronoInfo, now: Long, onClick: () -> Unit) {
     val ms = if (c.countDown) c.base - now else now - c.base
     // Il timer arrotonda per eccesso, come l'Orologio; scaduto, conta in negativo.
     val s = if (c.countDown && ms > 0) (ms + 999) / 1000 else ms.absoluteValue / 1000
-    val text = c.frozen ?: buildString {
-        if (ms < 0 && s > 0) append('-')
-        if (s >= 3600) append("${s / 3600}:${"%02d".format(s / 60 % 60)}") else append(s / 60)
-        append(":${"%02d".format(s % 60)}")
-    }
+    val text = c.frozen ?: Chrono.format(if (ms < 0) -s * 1000 else s * 1000)
     Row(
         Modifier
             .clip(CircleShape)
