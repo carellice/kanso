@@ -9,6 +9,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -22,8 +23,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Directions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -100,7 +99,7 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(24.dp)
     Column(modifier.fillMaxWidth()) {
     Box(
-        Modifier.fillMaxWidth().height(168.dp).clip(shape).background(K.Surface).border(1.dp, K.Line, shape),
+        Modifier.fillMaxWidth().heightIn(min = 168.dp).animateContentSize(Motion.soft()).clip(shape).background(K.Surface).border(1.dp, K.Line, shape),
     ) {
         if (!vm.hasCalendarAccess || days.isEmpty()) {
             Text(
@@ -111,14 +110,14 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
             return@Box
         }
         val pager = rememberPagerState { days.size }
-        Column(Modifier.fillMaxSize()) {
-            HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.Top) { page ->
+        Column(Modifier.fillMaxWidth()) {
+            HorizontalPager(pager, Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) { page ->
                 val (day, events) = days[page]
                 val title = dayTitle(day, today, tomorrow)
                 // La frase del riassunto si abbina alla pagina dal giorno con cui inizia (Oggi, Domani, Giovedì…).
                 val line = lines.firstOrNull { (label, _) -> label != null && plain(label.substringBefore(' ')) == plain(title.substringBefore(' ')) }?.second
                 Column(
-                    Modifier.fillMaxSize().pressable(pressedScale = 0.98f, onClick = open).padding(start = 20.dp, end = 20.dp, top = 16.dp),
+                    Modifier.fillMaxWidth().pressable(pressedScale = 0.98f, onClick = open).padding(start = 20.dp, end = 20.dp, top = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -131,10 +130,10 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
                         if (ai) RegenerateButton(vm)
                     }
                     // Con l'AI la pagina è il riassunto; finché non arriva (o se fallisce) restano gli impegni.
-                    // Il riassunto si legge sempre intero: se è lungo scorre in verticale dentro la card, che resta fissa.
+                    // Il riassunto si legge sempre intero: la card cresce e i riquadri della Home si rimpiccioliscono.
                     if (ai && line != null) Text(
                         highlightTimes(line), style = MaterialTheme.typography.bodyMedium, color = K.Paper.copy(alpha = 0.85f),
-                        modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                     ) else {
                         events.take(PEEK).forEach { e ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
