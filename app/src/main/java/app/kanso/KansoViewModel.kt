@@ -79,6 +79,10 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     /** Aumenta quando si torna in Kanso da un'app aperta da qui, per l'animazione di ritorno. */
     var returnSignal by mutableIntStateOf(0); private set
     private var away = false
+    /** Aumenta quando si apre un'app: la Home si allontana mentre l'app cresce. */
+    var departSignal by mutableIntStateOf(0); private set
+    /** La vista della Home, per far partire l'animazione di apertura dal centro. */
+    var rootView: java.lang.ref.WeakReference<android.view.View>? = null
 
     private val privateSpace = PrivateSpace(app)
     /** Profilo dello spazio privato, null se non c'è o se Kanso non è l'app Home. */
@@ -172,12 +176,13 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Le app della Home si aprono subito; le altre passano dall'attrito consapevole. */
     fun open(app: AppEntry, options: Bundle? = null) {
-        if (prefs.friction && app.pkg !in tiles) friction = app else launch(app.pkg, options)
+        if (prefs.friction && app.pkg !in tiles) { friction = app; frictionOptions = options } else launch(app.pkg, options)
     }
 
     fun isDistracting(app: AppEntry) = app.category in DistractingCategories
 
-    fun confirmFriction() { friction?.let { launch(it.pkg) }; friction = null }
+    private var frictionOptions: Bundle? = null
+    fun confirmFriction() { friction?.let { launch(it.pkg, frictionOptions) }; friction = null }
     fun cancelFriction() { friction = null }
 
     /** [options]: animazione che parte dall'icona; senza, l'app cresce dal centro. */
@@ -192,9 +197,14 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun start(intent: Intent, options: Bundle? = null) {
         try {
-            val anim = options ?: ActivityOptions.makeCustomAnimation(ctx, R.anim.app_open, R.anim.home_exit).toBundle()
+            // Android ignora le animazioni personalizzate tra app diverse (e mette lo scorrimento laterale):
+            // quella che cresce da un rettangolo invece la rispetta. Senza icona di partenza, cresce dal centro.
+            val anim = options ?: rootView?.get()?.let { v ->
+                ActivityOptions.makeScaleUpAnimation(v, v.width / 2 - v.width / 8, v.height / 2 - v.height / 8, v.width / 4, v.height / 4).toBundle()
+            }
             ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), anim)
             away = true
+            departSignal++
             searchOpen = false
         } catch (_: ActivityNotFoundException) {
             toast("Nessuna app può aprirlo")
@@ -272,5 +282,5 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissSummary() { summary = SummaryState.Idle }
 
-    private fun toast(text: String) = Toast.makeText(ctx, text, Toast.LENGTH_SHORT).show()
+    fun toast(text: String) = Toast.makeText(ctx, text, Toast.LENGTH_SHORT).show()
 }

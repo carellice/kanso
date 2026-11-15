@@ -64,6 +64,13 @@ fun KansoApp(vm: KansoViewModel) {
         arrival.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 220f))
     }
 
+    // Aprendo un'app la Home si allontana verso lo schermo e svanisce, mentre l'app cresce dall'icona.
+    val view = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(view) { vm.rootView = java.lang.ref.WeakReference(view) }
+    val depart = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(vm.departSignal) { if (vm.departSignal > 0) depart.animateTo(1f, tween(380, easing = Motion.Calm)) }
+    LaunchedEffect(vm.returnSignal) { depart.snapTo(0f) }
+
     // Un launcher non si chiude mai: Indietro chiude le sovrapposizioni o torna alla Home.
     BackHandler {
         when {
@@ -88,9 +95,9 @@ fun KansoApp(vm: KansoViewModel) {
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    val back = lerp(1.08f, 1f, arrival.value)
+                    val back = lerp(1.08f, 1f, arrival.value) * lerp(1f, 1.12f, depart.value)
                     scaleX = dim.coerceAtLeast(0.96f) * back; scaleY = scaleX
-                    alpha = dim * lerp(0.3f, 1f, arrival.value).coerceIn(0f, 1f)
+                    alpha = dim * lerp(0.3f, 1f, arrival.value).coerceIn(0f, 1f) * (1f - depart.value * 0.85f)
                 }
                 .blur(blur),
         ) {
@@ -105,7 +112,7 @@ fun KansoApp(vm: KansoViewModel) {
                     when (page) {
                         AWARENESS -> AwarenessPage(vm)
                         HOME -> HomePage(vm)
-                        LIBRARY -> LibraryPage(vm)
+                        LIBRARY -> LibraryPage(vm, active = pager.settledPage == LIBRARY)
                     }
                 }
             }
