@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -276,8 +277,16 @@ private fun RevealLines(vm: KansoViewModel, text: String, apps: Map<String, Stri
             val m = tagged.find(line)
             val label = m?.groupValues?.get(1)?.trim()
             val pkg = label?.let { l -> apps[l.lowercase()] ?: vm.apps.firstOrNull { it.label.equals(l, ignoreCase = true) }?.pkg }
+            val from = rememberLaunchFrom()
             Row(
-                Modifier.graphicsLayer { alpha = a.value; translationY = (1 - a.value) * 14.dp.toPx() },
+                Modifier
+                    .graphicsLayer { alpha = a.value; translationY = (1 - a.value) * 14.dp.toPx() }
+                    .then(from.modifier)
+                    // Un tocco sulla riga apre l'app da cui arriva la notifica.
+                    .then(if (pkg != null) Modifier.clip(RoundedCornerShape(12.dp)).pressable(pressedScale = 0.98f) {
+                        vm.notesOpen = false
+                        vm.launch(pkg, from.options())
+                    } else Modifier),
                 verticalAlignment = Alignment.Top,
             ) {
                 if (pkg != null) {
