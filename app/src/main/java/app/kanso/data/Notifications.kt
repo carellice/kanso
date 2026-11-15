@@ -44,7 +44,7 @@ class NotificationCollector : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         Chrono.update(this, sbn)
-        toNote(this, sbn)?.let { NoteStore.add(this, it) }
+        toNote(this, sbn, runCatching { currentRanking }.getOrNull())?.let { NoteStore.add(this, it) }
     }
 
     companion object {
@@ -53,13 +53,26 @@ class NotificationCollector : NotificationListenerService() {
         /** Le notifiche ora nel pannello; null se il servizio non è collegato. */
         fun active(): Array<StatusBarNotification>? = instance?.let { runCatching { it.activeNotifications }.getOrNull() }
 
+        /** Le notifiche del pannello pronte per il riassunto; null se il servizio non è collegato. */
+        fun activeNotes(c: Context): List<Note>? {
+            val service = instance ?: return null
+            val all = runCatching { service.activeNotifications }.getOrNull() ?: return null
+            val ranking = runCatching { service.currentRanking }.getOrNull()
+            return all.mapNotNull { toNote(c, it, ranking) }.sortedBy { it.time }
+        }
+
         fun rebind(c: Context) = runCatching { requestRebind(ComponentName(c, NotificationCollector::class.java)) }
 
         /** La notifica in forma leggibile per il riassunto; null per quelle in corso, di riepilogo o vuote. */
-        fun toNote(c: Context, sbn: StatusBarNotification): Note? {
+        fun toNote(c: Context, sbn: StatusBarNotification, ranking: RankingMap?): Note? {
             val n = sbn.notification
             if (sbn.isOngoing || sbn.packageName == c.packageName || n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
             val e = n.extras
+            // Riproduzioni (musica, podcast, video): non sono messaggi da leggere.
+            if (e.containsKey(Notification.EXTRA_MEDIA_SESSION) || n.category == Notification.CATEGORY_TRANSPORT) return null
+            // «Notifiche silenziose» del pannello: importanza bassa o minima.
+            val r = Ranking()
+            if (ranking?.getRanking(sbn.key, r) == true && r.importance <= android.app.NotificationManager.IMPORTANCE_LOW) return null
             val title = (e.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE) ?: e.getCharSequence(Notification.EXTRA_TITLE))
                 ?.toString().orEmpty()
             // Chat: gli ultimi messaggi con il mittente; liste (es. posta): le righe; altrimenti il testo.
@@ -138,7 +151,8 @@ object Summarizer {
         "conversazioni; unisci le notifiche della stessa conversazione in un'unica frase che dice chi scrive e cosa " +
         "vuole. Metti prima ciò che richiede una risposta o un'azione, riduci a pochissime parole pubblicità e " +
         "promozioni. Al massimo 8 righe, testo semplice senza markdown, ogni riga inizia con il nome esatto dell'app " +
-        "tra parentesi quadre, ad esempio: [WhatsApp] Calcetto: Marco e Luca chiedono se ci sei giovedì alle 20."
+        "tra parentesi quadre, ad esempio: [WhatsApp] Calcetto: Marco e Luca chiedono se ci sei giovedì alle 20. " +
+        "Non scrivere mai righe per dire che non ci sono notifiche o che non c'è nulla da leggere."
 
     private const val AGENDA = "Sei l'assistente di un launcher dedicato al benessere digitale. Riassumi in italiano " +
         "gli impegni dei prossimi giorni, con tono calmo e sintetico. Scrivi una riga per OGNI giorno che ha impegni, " +

@@ -266,7 +266,7 @@ fun SummaryCard(vm: KansoViewModel) {
 /** Le righe del riassunto compaiono una dopo l'altra, salendo appena. */
 @Composable
 private fun RevealLines(vm: KansoViewModel, text: String, apps: Map<String, String>) {
-    val lines = remember(text) { text.lines().map { it.trim() }.filter { it.isNotEmpty() } }
+    val lines = remember(text) { text.lines().map { it.trim() }.filter { it.isNotEmpty() && !Empty.containsMatchIn(it) } }
     // Ogni riga inizia con «[App]»: al posto del nome mostro l'icona dell'app.
     val tagged = Regex("""^•?\s*\[([^\]]+)]\s*(.*)$""")
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -317,3 +317,6 @@ private fun BreathingDots() {
         Text("Sto leggendo con calma…", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
     }
 }
+
+/** Frasi del modello che dicono solo che non c'è nulla: in un riassunto non servono. */
+private val Empty = Regex("""(non ci sono|nessuna?) (altre |nuove )?(notifich|messagg|novit)|nulla da (leggere|segnalare)""", RegexOption.IGNORE_CASE)

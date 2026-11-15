@@ -249,7 +249,8 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Swipe verso il basso in Home: il riassunto se configurato, altrimenti la tendina di Android. */
     fun pullDown() {
-        if (summaryReady) {
+        // Senza notifiche da riassumere non c'è niente da mostrare: si apre direttamente la tendina.
+        if (summaryReady && currentNotes().isNotEmpty()) {
             notesOpen = true
             // Si rifà se nel frattempo sono arrivate o sono state tolte notifiche.
             if (summary !is SummaryState.Loading && (summary !is SummaryState.Done || summarizedNotes != currentNotes())) summarize()
@@ -280,7 +281,7 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Le notifiche ora nel pannello; se il servizio non è collegato, la copia locale. */
     private fun currentNotes(): List<app.kanso.data.Note> =
-        NotificationCollector.active()?.mapNotNull { NotificationCollector.toNote(ctx, it) }?.sortedBy { it.time } ?: NoteStore.read(ctx)
+        NotificationCollector.activeNotes(ctx) ?: NoteStore.read(ctx)
 
     fun summarize() {
         val notes = currentNotes()
@@ -288,7 +289,8 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         when {
             prefs.cfAccount.isBlank() || prefs.cfToken.isBlank() ->
                 summary = SummaryState.Failed("Inserisci Account ID e chiave API di Cloudflare nelle impostazioni.")
-            notes.isEmpty() -> summary = SummaryState.Done("Nessuna notifica nel pannello. Respira: è tutto tranquillo.", 0)
+            // «Aggiorna» dopo aver tolto tutto dal pannello: il riassunto si chiude.
+            notes.isEmpty() -> { summary = SummaryState.Idle; notesOpen = false }
             else -> {
                 summary = SummaryState.Loading
                 viewModelScope.launch {
