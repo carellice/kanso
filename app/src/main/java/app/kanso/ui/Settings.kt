@@ -84,6 +84,10 @@ fun SettingsSheet(vm: KansoViewModel) {
                 Row_("Lettura notifiche", "Per il riassunto e per timer e cronometro in Home", done = vm.hasNotificationAccess) {
                     vm.start(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
+                Divider()
+                Row_("Rivedi la presentazione", "Le schede del primo avvio") {
+                    vm.settingsOpen = false; p.saveOnboarded(false)
+                }
             }
 
             Section("Home") {
