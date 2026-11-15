@@ -35,6 +35,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -64,7 +66,10 @@ import app.kanso.data.DistractingCategories
 private const val PREVIEW = 8
 
 @Composable
-fun LibraryPage(vm: KansoViewModel) {
+fun LibraryPage(vm: KansoViewModel, active: Boolean) {
+    // Uscendo dalla Libreria si torna in cima: al ritorno si riparte dall'inizio.
+    val list = rememberLazyListState()
+    LaunchedEffect(active) { if (!active) list.scrollToItem(0) }
     val tiles = vm.tiles.toSet()
     val groups = remember(vm.apps, tiles) {
         vm.apps.filter { it.pkg !in tiles }.groupBy { it.category }.toSortedMap(compareBy { it.ordinal }).toList()
@@ -73,6 +78,7 @@ fun LibraryPage(vm: KansoViewModel) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
+        state = list,
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 80.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
