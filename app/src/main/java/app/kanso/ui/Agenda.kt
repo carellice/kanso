@@ -28,14 +28,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -63,89 +61,87 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private const val PEEK = 2
+private const val PEEK = 3
+private const val PEEK_DAYS = 7
 
-/** L'agenda in piccolo, sotto l'orologio: i prossimi impegni. Un tocco la apre a tutto schermo. */
+/**
+ * L'agenda in piccolo, sotto l'orologio: una pagina per giorno, da scorrere in orizzontale.
+ * Ogni pagina ha gli impegni di quel giorno e, se c'è, la frase del riassunto AI. Un tocco apre l'agenda intera.
+ */
 @Composable
 fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.refreshAgenda() }
     val today = dayKey(System.currentTimeMillis(), false)
     val tomorrow = dayKey(System.currentTimeMillis() + 86_400_000L, false)
-    Column(
-        modifier
-            .fillMaxWidth()
-            .animateContentSize(Motion.soft())
-            .clip(RoundedCornerShape(20.dp))
-            .pressable(pressedScale = 0.98f) {
-                if (vm.hasCalendarAccess) vm.agendaOpen = true else ask.launch(Manifest.permission.READ_CALENDAR)
-            }
-            .padding(vertical = 6.dp),
-    ) {
-        when {
-            !vm.hasCalendarAccess -> Text("Tocca per vedere i tuoi impegni", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
-            vm.agenda.isEmpty() -> Text("Nessun impegno in vista. Spazio libero, per te.", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
-            vm.agendaSummary != null -> AgendaSummary(vm.agendaSummary!!)
-            else -> {
-                vm.agenda.take(PEEK).forEach { e ->
-                    Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+    val open = { if (vm.hasCalendarAccess) vm.agendaOpen = true else ask.launch(Manifest.permission.READ_CALENDAR) }
+    if (!vm.hasCalendarAccess || vm.agenda.isEmpty()) {
+        Text(
+            if (!vm.hasCalendarAccess) "Tocca per vedere i tuoi impegni" else "Nessun impegno in vista. Spazio libero, per te.",
+            style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+            modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).pressable(pressedScale = 0.98f, onClick = open).padding(vertical = 6.dp),
+        )
+        return
+    }
+    val days = remember(vm.agenda) { vm.agenda.groupBy { it.day }.toList().take(PEEK_DAYS) }
+    val lines = remember(vm.agendaSummary) { summaryLines(vm.agendaSummary) }
+    val pager = rememberPagerState { days.size }
+    Column(modifier.fillMaxWidth()) {
+        HorizontalPager(
+            pager, Modifier.fillMaxWidth().animateContentSize(Motion.soft()),
+            pageSpacing = 16.dp, verticalAlignment = Alignment.Top,
+        ) { page ->
+            val (day, events) = days[page]
+            val title = dayTitle(day, today, tomorrow)
+            // La frase del riassunto si abbina alla pagina dal giorno con cui inizia (Oggi, Domani, Giovedì…).
+            val line = lines.firstOrNull { (label, _) -> label?.substringBefore(' ').equals(title.substringBefore(' '), ignoreCase = true) }?.second
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).pressable(pressedScale = 0.98f, onClick = open).padding(vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = if (day == today) K.Shu else K.Muted, modifier = Modifier.weight(1f))
+                    Text(if (events.size == 1) "1 impegno" else "${events.size} impegni", style = MaterialTheme.typography.labelSmall, color = K.Faint)
+                }
+                if (line != null) Row {
+                    Icon(Icons.Rounded.AutoAwesome, null, Modifier.padding(top = 3.dp).size(14.dp), tint = K.Shu)
+                    Spacer(Modifier.width(8.dp))
+                    Text(highlightTimes(line), style = MaterialTheme.typography.bodyMedium, color = K.Paper.copy(alpha = 0.85f))
+                }
+                events.take(PEEK).forEach { e ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.width(3.dp).height(16.dp).clip(CircleShape).background(Color(e.color).copy(alpha = 0.9f)))
                         Spacer(Modifier.width(10.dp))
-                        val day = if (e.day == today) "" else dayTitle(e.day, today, tomorrow).substringBefore(' ') + " "
                         val time = if (e.allDay) "tutto il giorno" else timeFormat.format(Date(e.begin))
-                        Text("$day$time", style = MaterialTheme.typography.labelMedium, color = if (isLive(e)) K.Shu else K.Muted)
+                        Text(time, style = MaterialTheme.typography.labelMedium, color = if (isLive(e)) K.Shu else K.Muted)
                         Spacer(Modifier.width(10.dp))
                         Text(e.title, style = MaterialTheme.typography.bodyMedium, color = K.Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                val more = vm.agenda.size - PEEK
+                val more = events.size - PEEK
                 if (more > 0) Text(
                     if (more == 1) "e un altro impegno" else "e altri $more impegni",
-                    style = MaterialTheme.typography.labelMedium, color = K.Faint, modifier = Modifier.padding(start = 13.dp, top = 2.dp),
+                    style = MaterialTheme.typography.labelMedium, color = K.Faint, modifier = Modifier.padding(start = 13.dp),
+                )
+            }
+        }
+        if (days.size > 1) Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.Center) {
+            repeat(days.size) { i ->
+                val current = i == pager.currentPage
+                Box(
+                    Modifier.padding(horizontal = 3.dp).height(5.dp).width(if (current) 14.dp else 5.dp).animateContentSize(Motion.soft())
+                        .clip(CircleShape).background(if (current) K.Paper.copy(alpha = 0.8f) else K.Faint),
                 )
             }
         }
     }
 }
 
-/** Il riassunto AI dell'agenda: una riga per frase, con icona, etichetta del giorno e orari in evidenza. */
-@Composable
-private fun AgendaSummary(text: String) {
-    val lines = remember(text) {
-        text.lines().map { it.trim().trimStart('-', '•', '*', ' ') }.filter { it.isNotBlank() }.map { line ->
-            // L'etichetta è il testo prima dei due punti, se breve e non un orario (es. «Domani: …», non «10:30»).
-            val label = line.substringBefore(':', "").trim().takeIf { it.length in 1..20 && !it.last().isDigit() }
-            label to (if (label != null) line.substringAfter(':').trim() else line)
-        }
+/** Le righe del riassunto AI: etichetta del giorno (prima dei due punti, se breve e non un orario) e frase. */
+private fun summaryLines(text: String?): List<Pair<String?, String>> =
+    text.orEmpty().lines().map { it.trim().trimStart('-', '•', '*', ' ') }.filter { it.isNotBlank() }.map { line ->
+        val label = line.substringBefore(':', "").trim().takeIf { it.length in 1..20 && !it.last().isDigit() }
+        label to (if (label != null) line.substringAfter(':').trim() else line)
     }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(14.dp), tint = K.Shu)
-            Spacer(Modifier.width(6.dp))
-            Eyebrow("In sintesi")
-        }
-        lines.forEach { (label, body) ->
-            val today = label?.equals("oggi", ignoreCase = true) == true
-            Row {
-                Box(
-                    Modifier.size(30.dp).clip(CircleShape).background(if (today) K.Shu.copy(alpha = 0.16f) else K.SurfaceHigh),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(summaryIcon(label), null, Modifier.size(16.dp), tint = if (today) K.Shu else K.Muted) }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f).padding(top = if (label == null) 5.dp else 0.dp)) {
-                    if (label != null) Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = if (today) K.Shu else K.Muted)
-                    Text(highlightTimes(body), style = MaterialTheme.typography.bodyMedium, color = K.Paper.copy(alpha = 0.85f))
-                }
-            }
-        }
-    }
-}
-
-private fun summaryIcon(label: String?): ImageVector = when (label?.lowercase()) {
-    null -> Icons.Rounded.AutoAwesome
-    "oggi" -> Icons.Rounded.Today
-    "domani" -> Icons.Rounded.Event
-    else -> Icons.Rounded.CalendarMonth
-}
 
 private val TimeRegex = Regex("""\b\d{1,2}[:.]\d{2}\b""")
 
