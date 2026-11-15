@@ -158,7 +158,7 @@ object Summarizer {
         "gli impegni dei prossimi giorni, con tono calmo e sintetico. Scrivi una riga per OGNI giorno che ha impegni, " +
         "nessuno escluso, e nessuna riga per i giorni senza impegni. Ogni riga inizia con l'etichetta del giorno " +
         "esattamente come appare negli impegni prima della parentesi (Oggi, Domani, Giovedì…), seguita da due punti " +
-        "e da una o due frasi brevi con orari e cose importanti. Testo semplice senza markdown, ad esempio: " +
+        "e da una o due frasi brevi (al massimo 30 parole) con orari e cose importanti. Testo semplice senza markdown, ad esempio: " +
         "Domani: dentista alle 10:30, poi pomeriggio libero."
 
     suspend fun summarize(account: String, token: String, notes: List<Note>): String {

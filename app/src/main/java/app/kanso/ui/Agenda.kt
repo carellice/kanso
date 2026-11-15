@@ -9,6 +9,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -113,9 +116,12 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
                         Text(if (events.size == 1) "1 impegno" else "${events.size} impegni", style = MaterialTheme.typography.labelSmall, color = K.Faint)
                     }
                     // Con l'AI la pagina è il riassunto; finché non arriva (o se fallisce) restano gli impegni.
-                    if (ai && line != null) Text(
-                        highlightTimes(line), style = MaterialTheme.typography.bodyLarge, color = K.Paper.copy(alpha = 0.85f),
-                        maxLines = 4, overflow = TextOverflow.Ellipsis,
+                    // Il riassunto si legge sempre intero: il testo si rimpicciolisce fino a stare nella card, che resta fissa.
+                    if (ai && line != null) BasicText(
+                        highlightTimes(line),
+                        Modifier.weight(1f).fillMaxWidth().padding(bottom = 2.dp),
+                        style = MaterialTheme.typography.bodyLarge.copy(color = K.Paper.copy(alpha = 0.85f)),
+                        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 16.sp, stepSize = 0.5.sp),
                     ) else {
                         events.take(PEEK).forEach { e ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
