@@ -1,0 +1,145 @@
+package app.kanso.ui
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import app.kanso.data.AppsRepository
+
+private val grayscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+
+@Composable
+fun AppIcon(repo: AppsRepository, pkg: String, size: Dp, monochrome: Boolean = false, modifier: Modifier = Modifier) {
+    val icon by produceState<ImageBitmap?>(repo.cachedIcon(pkg), pkg) { value = repo.icon(pkg) }
+    val alpha by animateFloatAsState(if (icon != null) 1f else 0f, tween(260), label = "icon")
+    Box(modifier.size(size)) {
+        icon?.let {
+            Image(
+                it, null, Modifier.size(size).graphicsLayer { this.alpha = alpha },
+                colorFilter = if (monochrome) grayscale else null,
+            )
+        }
+    }
+}
+
+/** Clic con un leggero affondamento a molla, come un tasto vero. */
+@Composable
+fun Modifier.pressable(onLongClick: (() -> Unit)? = null, pressedScale: Float = 0.94f, onClick: () -> Unit): Modifier {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) pressedScale else 1f, Motion.press(), label = "press")
+    val haptic = LocalHapticFeedback.current
+    return this
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .combinedClickable(
+            interactionSource = source, indication = null,
+            onLongClick = onLongClick?.let { { haptic.performHapticFeedback(HapticFeedbackType.LongPress); it() } },
+            onClick = onClick,
+        )
+}
+
+@Composable
+fun Eyebrow(text: String, modifier: Modifier = Modifier) =
+    Text(text.uppercase(), modifier, style = MaterialTheme.typography.labelSmall, color = K.Muted)
+
+@Composable
+fun PageHeader(eyebrow: String, title: String, trailing: @Composable () -> Unit = {}) {
+    Row(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp), verticalAlignment = Alignment.Bottom) {
+        Column(Modifier.weight(1f)) {
+            Eyebrow(eyebrow)
+            Spacer(Modifier.height(6.dp))
+            Text(title, style = MaterialTheme.typography.headlineLarge, color = K.Paper)
+        }
+        trailing()
+    }
+}
+
+@Composable
+fun KCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(K.Surface)
+            .border(1.dp, K.Line, RoundedCornerShape(28.dp))
+            .padding(22.dp),
+    ) { content() }
+}
+
+@Composable
+fun PillButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    filled: Boolean = true,
+    enabled: Boolean = true,
+    icon: ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    val bg = if (filled) K.Paper else K.SurfaceHigh
+    val fg = if (filled) K.Ink else K.Paper
+    val alpha by animateFloatAsState(if (enabled) 1f else 0.35f, tween(300), label = "pill")
+    Row(
+        modifier
+            .graphicsLayer { this.alpha = alpha }
+            .clip(CircleShape)
+            .background(bg)
+            .then(if (enabled) Modifier.pressable(onClick = onClick) else Modifier)
+            .padding(horizontal = 22.dp, vertical = 15.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icon?.let { Icon(it, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.size(8.dp)) }
+        Text(text, style = MaterialTheme.typography.labelLarge, color = fg, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+fun IconCircle(icon: ImageVector, description: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.size(44.dp).clip(CircleShape).background(K.Surface).border(1.dp, K.Line, CircleShape).pressable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, description, Modifier.size(20.dp), tint = K.Paper) }
+}
+
+@Composable
+fun AppLabel(text: String, modifier: Modifier = Modifier) =
+    Text(
+        text, modifier, style = MaterialTheme.typography.labelMedium, color = K.Paper.copy(alpha = 0.82f),
+        maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+    )
