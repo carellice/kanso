@@ -8,6 +8,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -65,76 +66,90 @@ private const val PEEK = 3
 private const val PEEK_DAYS = 7
 
 /**
- * L'agenda in piccolo, sotto l'orologio: una pagina per giorno, da scorrere in orizzontale.
- * Ogni pagina ha gli impegni di quel giorno e, se c'è, la frase del riassunto AI. Un tocco apre l'agenda intera.
+ * L'agenda in piccolo, sotto l'orologio: una card di altezza fissa con una pagina per giorno (prossimi 7 giorni),
+ * da scorrere in orizzontale. Con Cloudflare configurato ogni pagina è il riassunto AI del giorno; senza, gli impegni.
+ * Un tocco apre l'agenda intera.
  */
 @Composable
 fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.refreshAgenda() }
-    val today = dayKey(System.currentTimeMillis(), false)
-    val tomorrow = dayKey(System.currentTimeMillis() + 86_400_000L, false)
+    val now = System.currentTimeMillis()
+    val today = dayKey(now, false)
+    val tomorrow = dayKey(now + 86_400_000L, false)
+    val until = dayKey(now + PEEK_DAYS * 86_400_000L, false)
     val open = { if (vm.hasCalendarAccess) vm.agendaOpen = true else ask.launch(Manifest.permission.READ_CALENDAR) }
-    if (!vm.hasCalendarAccess || vm.agenda.isEmpty()) {
-        Text(
-            if (!vm.hasCalendarAccess) "Tocca per vedere i tuoi impegni" else "Nessun impegno in vista. Spazio libero, per te.",
-            style = MaterialTheme.typography.bodyMedium, color = K.Muted,
-            modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).pressable(pressedScale = 0.98f, onClick = open).padding(vertical = 6.dp),
-        )
-        return
-    }
-    val days = remember(vm.agenda) { vm.agenda.groupBy { it.day }.toList().take(PEEK_DAYS) }
+    val days = remember(vm.agenda, today) { vm.agenda.filter { it.day < until }.groupBy { it.day }.toList() }
     val lines = remember(vm.agendaSummary) { summaryLines(vm.agendaSummary) }
-    val pager = rememberPagerState { days.size }
-    Column(modifier.fillMaxWidth()) {
-        HorizontalPager(
-            pager, Modifier.fillMaxWidth().animateContentSize(Motion.soft()),
-            pageSpacing = 16.dp, verticalAlignment = Alignment.Top,
-        ) { page ->
-            val (day, events) = days[page]
-            val title = dayTitle(day, today, tomorrow)
-            // La frase del riassunto si abbina alla pagina dal giorno con cui inizia (Oggi, Domani, Giovedì…).
-            val line = lines.firstOrNull { (label, _) -> label?.substringBefore(' ').equals(title.substringBefore(' '), ignoreCase = true) }?.second
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).pressable(pressedScale = 0.98f, onClick = open).padding(vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = if (day == today) K.Shu else K.Muted, modifier = Modifier.weight(1f))
-                    Text(if (events.size == 1) "1 impegno" else "${events.size} impegni", style = MaterialTheme.typography.labelSmall, color = K.Faint)
-                }
-                if (line != null) Row {
-                    Icon(Icons.Rounded.AutoAwesome, null, Modifier.padding(top = 3.dp).size(14.dp), tint = K.Shu)
-                    Spacer(Modifier.width(8.dp))
-                    Text(highlightTimes(line), style = MaterialTheme.typography.bodyMedium, color = K.Paper.copy(alpha = 0.85f))
-                }
-                events.take(PEEK).forEach { e ->
+    val ai = vm.prefs.cfAccount.isNotBlank() && vm.prefs.cfToken.isNotBlank()
+    val shape = RoundedCornerShape(24.dp)
+    Box(
+        modifier.fillMaxWidth().height(168.dp).clip(shape).background(K.Surface).border(1.dp, K.Line, shape),
+    ) {
+        if (!vm.hasCalendarAccess || days.isEmpty()) {
+            Text(
+                if (!vm.hasCalendarAccess) "Tocca per vedere i tuoi impegni" else "Nessun impegno nei prossimi $PEEK_DAYS giorni. Spazio libero, per te.",
+                style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+                modifier = Modifier.fillMaxSize().pressable(pressedScale = 0.98f, onClick = open).padding(20.dp),
+            )
+            return@Box
+        }
+        val pager = rememberPagerState { days.size }
+        Column(Modifier.fillMaxSize()) {
+            HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.Top) { page ->
+                val (day, events) = days[page]
+                val title = dayTitle(day, today, tomorrow)
+                // La frase del riassunto si abbina alla pagina dal giorno con cui inizia (Oggi, Domani, Giovedì…).
+                val line = lines.firstOrNull { (label, _) -> label != null && plain(label.substringBefore(' ')) == plain(title.substringBefore(' ')) }?.second
+                Column(
+                    Modifier.fillMaxSize().pressable(pressedScale = 0.98f, onClick = open).padding(start = 20.dp, end = 20.dp, top = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.width(3.dp).height(16.dp).clip(CircleShape).background(Color(e.color).copy(alpha = 0.9f)))
-                        Spacer(Modifier.width(10.dp))
-                        val time = if (e.allDay) "tutto il giorno" else timeFormat.format(Date(e.begin))
-                        Text(time, style = MaterialTheme.typography.labelMedium, color = if (isLive(e)) K.Shu else K.Muted)
-                        Spacer(Modifier.width(10.dp))
-                        Text(e.title, style = MaterialTheme.typography.bodyMedium, color = K.Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (ai) {
+                            Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(13.dp), tint = K.Shu)
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = if (day == today) K.Shu else K.Muted, modifier = Modifier.weight(1f))
+                        Text(if (events.size == 1) "1 impegno" else "${events.size} impegni", style = MaterialTheme.typography.labelSmall, color = K.Faint)
+                    }
+                    // Con l'AI la pagina è il riassunto; finché non arriva (o se fallisce) restano gli impegni.
+                    if (ai && line != null) Text(
+                        highlightTimes(line), style = MaterialTheme.typography.bodyLarge, color = K.Paper.copy(alpha = 0.85f),
+                        maxLines = 4, overflow = TextOverflow.Ellipsis,
+                    ) else {
+                        events.take(PEEK).forEach { e ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.width(3.dp).height(16.dp).clip(CircleShape).background(Color(e.color).copy(alpha = 0.9f)))
+                                Spacer(Modifier.width(10.dp))
+                                val time = if (e.allDay) "tutto il giorno" else timeFormat.format(Date(e.begin))
+                                Text(time, style = MaterialTheme.typography.labelMedium, color = if (isLive(e)) K.Shu else K.Muted)
+                                Spacer(Modifier.width(10.dp))
+                                Text(e.title, style = MaterialTheme.typography.bodyMedium, color = K.Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        val more = events.size - PEEK
+                        if (more > 0) Text(
+                            if (more == 1) "e un altro impegno" else "e altri $more impegni",
+                            style = MaterialTheme.typography.labelMedium, color = K.Faint, modifier = Modifier.padding(start = 13.dp),
+                        )
                     }
                 }
-                val more = events.size - PEEK
-                if (more > 0) Text(
-                    if (more == 1) "e un altro impegno" else "e altri $more impegni",
-                    style = MaterialTheme.typography.labelMedium, color = K.Faint, modifier = Modifier.padding(start = 13.dp),
-                )
             }
-        }
-        if (days.size > 1) Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.Center) {
-            repeat(days.size) { i ->
-                val current = i == pager.currentPage
-                Box(
-                    Modifier.padding(horizontal = 3.dp).height(5.dp).width(if (current) 14.dp else 5.dp).animateContentSize(Motion.soft())
-                        .clip(CircleShape).background(if (current) K.Paper.copy(alpha = 0.8f) else K.Faint),
-                )
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp).height(5.dp), horizontalArrangement = Arrangement.Center) {
+                if (days.size > 1) repeat(days.size) { i ->
+                    val current = i == pager.currentPage
+                    Box(
+                        Modifier.padding(horizontal = 3.dp).height(5.dp).width(if (current) 14.dp else 5.dp).animateContentSize(Motion.soft())
+                            .clip(CircleShape).background(if (current) K.Paper.copy(alpha = 0.8f) else K.Faint),
+                    )
+                }
             }
         }
     }
 }
+
+/** Minuscolo e senza accenti: «Giovedi» e «giovedì» sono lo stesso giorno. */
+private fun plain(s: String) = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase()
 
 /** Le righe del riassunto AI: etichetta del giorno (prima dei due punti, se breve e non un orario) e frase. */
 private fun summaryLines(text: String?): List<Pair<String?, String>> =
