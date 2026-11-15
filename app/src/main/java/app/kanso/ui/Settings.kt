@@ -164,6 +164,24 @@ fun SettingsSheet(vm: KansoViewModel) {
                 }
             }
 
+            Section("Diagnostica timer") {
+                var report by remember { mutableStateOf<String?>(null) }
+                Text(
+                    "Avvia un timer o un cronometro nell'Orologio, poi tocca «Leggi»: qui compare cosa Kanso vede nella sua notifica.",
+                    style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+                )
+                Spacer(Modifier.height(14.dp))
+                PillButton("Leggi", filled = false) {
+                    report = app.kanso.data.Chrono.describe(vm.appContext, app.kanso.data.NotificationCollector.active())
+                }
+                report?.let {
+                    Spacer(Modifier.height(14.dp))
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = K.Paper)
+                    }
+                }
+            }
+
             Text(
                 "Kanso ${BuildConfig.VERSION_NAME} · open source · nessun tracciamento",
                 style = MaterialTheme.typography.labelMedium, color = K.Faint,

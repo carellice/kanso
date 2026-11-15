@@ -39,35 +39,76 @@ object Chrono {
         // shortcut: riconosce l'Orologio dal nome del pacchetto (Google, AOSP, Samsung, Xiaomi), altre app timer no.
         if (!sbn.packageName.contains("clock", ignoreCase = true)) return null
         val n = sbn.notification
-        // Chi usa il cronometro standard della notifica.
+        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
+        val texts = TEXTS.mapNotNull { n.extras.getCharSequence(it)?.toString()?.takeIf(String::isNotBlank) } +
+            n.extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES).orEmpty().map { it.toString() }
+        val all = (texts + n.channelId.orEmpty()).joinToString(" ")
+        // shortcut: sveglie e modalità notte si riconoscono dalle parole italiane e inglesi.
+        if (Skip.containsMatchIn(all)) return null
+        val stopwatchHint = all.contains("cronometro", true) || all.contains("stopwatch", true) || n.category == Notification.CATEGORY_STOPWATCH
+        // Chi usa il cronometro standard della notifica (anche i Live Update di Android 16).
         if (n.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)) {
             return ChronoInfo(sbn.key, sbn.packageName, n.extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN), n.`when`, null)
         }
         // Google Orologio e AOSP disegnano un Chronometer dentro una vista personalizzata: la gonfio e lo leggo.
-        // Ogni vista si prova a parte: se una non si gonfia (risorse dell'Orologio non compatibili) si passa alla successiva.
-        val chrono = listOfNotNull(n.contentView, n.bigContentView, n.headsUpContentView)
-            .firstNotNullOfOrNull { views -> runCatching { find(views.apply(c, null)) }.getOrNull() }
-        if (chrono != null) {
+        val views = inflate(c, sbn)
+        views.firstNotNullOfOrNull { findChrono(it) }?.let { chrono ->
             val base = System.currentTimeMillis() - (SystemClock.elapsedRealtime() - chrono.base)
             // In corso c'è l'azione «Pausa» (Pause, Pausa…); in pausa no. Un timer già scaduto continua a contare in negativo.
             val running = pausable(n) || (chrono.isCountDown && base < System.currentTimeMillis())
             return ChronoInfo(sbn.key, sbn.packageName, chrono.isCountDown, base, if (running) null else chrono.text.toString())
         }
-        // Live Update (Android 16) in pausa o formati sconosciuti: il tempo, se c'è, è scritto nel testo.
-        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
-        val texts = TEXTS.mapNotNull { n.extras.getCharSequence(it)?.toString()?.takeIf(String::isNotBlank) } +
-            n.extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES).orEmpty().map { it.toString() }
-        val all = (texts + n.channelId.orEmpty()).joinToString(" ")
-        // shortcut: riconosce sveglie, timer e cronometro dalle parole italiane e inglesi, altre lingue no.
-        if (all.contains("svegli", true) || all.contains("alarm", true)) return null
-        val stopwatch = all.contains("cronometro", true) || all.contains("stopwatch", true) ||
-            n.category == Notification.CATEGORY_STOPWATCH
-        val timer = all.contains("timer", true)
-        if (!sbn.isOngoing && !stopwatch && !timer) return null
-        val time = texts.firstNotNullOfOrNull { TIME.find(it)?.value }
-        // Se il tempo non si legge, la notifica di timer o cronometro si mostra comunque con il suo titolo.
-        val shown = time ?: texts.firstOrNull()?.takeIf { stopwatch || timer }?.take(24) ?: return null
-        return ChronoInfo(sbn.key, sbn.packageName, !stopwatch, 0, shown)
+        // Tempo scritto nel testo della notifica o in una scritta della vista personalizzata.
+        val time = (texts + views.flatMap { viewTexts(it) }).firstNotNullOfOrNull { TIME.find(it)?.value }
+        if (!sbn.isOngoing && time == null) return null
+        // Ultima risorsa: una notifica in corso dell'Orologio è un timer o un cronometro; si mostra con il suo titolo.
+        val shown = time ?: texts.firstOrNull()?.take(24) ?: if (stopwatchHint) "Cronometro" else "Timer"
+        return ChronoInfo(sbn.key, sbn.packageName, !stopwatchHint, 0, shown)
+    }
+
+    private val Skip = Regex("svegli|alarm|dormi|bedtime|riposo|sleep", RegexOption.IGNORE_CASE)
+
+    /** Le viste personalizzate della notifica, gonfiate con il contesto di Kanso o, se non basta, con quello dell'Orologio. */
+    private fun inflate(c: Context, sbn: StatusBarNotification): List<View> {
+        val n = sbn.notification
+        val remote = listOfNotNull(n.contentView, n.bigContentView, n.headsUpContentView)
+        if (remote.isEmpty()) return emptyList()
+        val contexts = listOfNotNull(
+            c,
+            android.view.ContextThemeWrapper(c, android.R.style.Theme_DeviceDefault),
+            runCatching { c.createPackageContext(sbn.packageName, Context.CONTEXT_RESTRICTED) }.getOrNull(),
+        )
+        return remote.mapNotNull { rv -> contexts.firstNotNullOfOrNull { ctx -> runCatching { rv.apply(ctx, null) }.getOrNull() } }
+    }
+
+    private fun viewTexts(v: View): List<String> = when (v) {
+        is android.widget.TextView -> listOf(v.text.toString())
+        is ViewGroup -> (0 until v.childCount).flatMap { viewTexts(v.getChildAt(it)) }
+        else -> emptyList()
+    }
+
+    /** Cosa Kanso vede nelle notifiche dell'Orologio: per capire perché un timer non compare. */
+    fun describe(c: Context, all: Array<StatusBarNotification>?): String {
+        if (all == null) return "Il servizio delle notifiche non è collegato. Riattiva l'accesso alle notifiche per Kanso."
+        val clocks = all.filter { it.packageName.contains("clock", ignoreCase = true) }
+        if (clocks.isEmpty()) return "Nessuna notifica dell'Orologio nel pannello (${all.size} notifiche in tutto)."
+        return clocks.joinToString("\n\n") { sbn ->
+            val n = sbn.notification
+            val extras = n.extras.keySet().sorted().joinToString("\n") { k -> "  $k = ${n.extras.get(k)?.toString()?.take(80)}" }
+            val inflated = inflate(c, sbn)
+            val errors = listOfNotNull(n.contentView, n.bigContentView, n.headsUpContentView).mapNotNull { rv ->
+                runCatching { rv.apply(c, null); null }.getOrElse { "${it.javaClass.simpleName}: ${it.message?.take(80)}" }
+            }
+            buildString {
+                appendLine("${sbn.packageName} · ongoing=${sbn.isOngoing} · categoria=${n.category} · canale=${n.channelId}")
+                appendLine("flags=0x${Integer.toHexString(n.flags)} · when=${n.`when`} · azioni=${n.actions.orEmpty().joinToString { it.title }}")
+                appendLine("viste: content=${n.contentView != null} big=${n.bigContentView != null} headsUp=${n.headsUpContentView != null} · gonfiate=${inflated.size}")
+                if (errors.isNotEmpty()) appendLine("errori: ${errors.joinToString(" | ")}")
+                appendLine("Chronometer=${inflated.firstNotNullOfOrNull { findChrono(it) } != null} · testi=${inflated.flatMap { viewTexts(it) }.take(6)}")
+                appendLine("letto come: ${runCatching { read(c, sbn) }.getOrElse { it.toString() }}")
+                append(extras)
+            }
+        }
     }
 
     private val TEXTS = listOf(
@@ -79,9 +120,9 @@ object Chrono {
 
     private fun pausable(n: Notification) = n.actions.orEmpty().any { it.title?.contains("pau", ignoreCase = true) == true }
 
-    private fun find(v: View): Chronometer? = when (v) {
+    private fun findChrono(v: View): Chronometer? = when (v) {
         is Chronometer -> v
-        is ViewGroup -> (0 until v.childCount).firstNotNullOfOrNull { find(v.getChildAt(it)) }
+        is ViewGroup -> (0 until v.childCount).firstNotNullOfOrNull { findChrono(v.getChildAt(it)) }
         else -> null
     }
 }

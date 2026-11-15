@@ -50,6 +50,7 @@ const val AGENDA_DAYS = 30
 
 class KansoViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx get() = getApplication<Application>()
+    val appContext: android.content.Context get() = ctx
     val prefs = Prefs(app)
     val appsRepo = AppsRepository(app)
     val usageRepo = UsageRepository(app)
