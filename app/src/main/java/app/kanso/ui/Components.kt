@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.kanso.data.AppsRepository
 
-private val grayscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+val grayscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
 @Composable
 fun AppIcon(repo: AppsRepository, pkg: String, size: Dp, monochrome: Boolean = false, modifier: Modifier = Modifier) {

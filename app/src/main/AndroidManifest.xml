@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Solo lettura: l'agenda con gli impegni dei prossimi giorni. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- Concesso all'app Home da Android 15: vedere e sbloccare lo spazio privato. -->
+    <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES" />
     <!-- Concesso dalle impostazioni: tempo schermo e numero di sblocchi di oggi. -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"

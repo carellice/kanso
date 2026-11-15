@@ -4,7 +4,14 @@ import android.app.ActivityOptions
 import android.app.Application
 import android.os.Bundle
 import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
+import android.os.UserHandle
+import app.kanso.data.PrivateApp
+import app.kanso.data.PrivateSpace
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -73,12 +80,52 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     var returnSignal by mutableIntStateOf(0); private set
     private var away = false
 
+    private val privateSpace = PrivateSpace(app)
+    /** Profilo dello spazio privato, null se non c'è o se Kanso non è l'app Home. */
+    var privateUser by mutableStateOf<UserHandle?>(null); private set
+    var privateLocked by mutableStateOf(true); private set
+    var privateApps by mutableStateOf<List<PrivateApp>>(emptyList()); private set
+
+    // Android avvisa quando lo spazio privato si sblocca o si blocca, anche da fuori Kanso.
+    private val profileReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) { refreshPrivate() }
+    }
+
+    init {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_PROFILE_AVAILABLE); addAction(Intent.ACTION_PROFILE_UNAVAILABLE)
+                addAction(Intent.ACTION_PROFILE_ADDED); addAction(Intent.ACTION_PROFILE_REMOVED)
+            }
+            ctx.registerReceiver(profileReceiver, filter, Context.RECEIVER_EXPORTED)
+        }
+    }
+
+    override fun onCleared() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) runCatching { ctx.unregisterReceiver(profileReceiver) }
+    }
+
+    fun refreshPrivate() = viewModelScope.launch {
+        val user = privateSpace.profile()
+        privateUser = user
+        privateLocked = user == null || privateSpace.isLocked(user)
+        privateApps = if (user != null && !privateLocked) privateSpace.apps(user) else emptyList()
+    }
+
+    fun togglePrivate() {
+        val user = privateUser ?: return
+        if (!privateSpace.setLocked(user, !privateLocked)) toast("Spazio privato non disponibile")
+    }
+
+    fun launchPrivate(app: PrivateApp) { if (privateSpace.launch(app)) away = true else toast("App non disponibile") }
+
     val tiles: List<String> get() = (prefs.tiles ?: defaultTiles).filter { pkg -> apps.isEmpty() || apps.any { it.pkg == pkg } }
     val byPkg: Map<String, AppEntry> get() = apps.associateBy { it.pkg }
 
     fun refresh() = viewModelScope.launch {
         apps = appsRepo.load().map { a -> prefs.categories[a.pkg]?.let { a.copy(category = it) } ?: a }
         if (defaultTiles.isEmpty()) defaultTiles = appsRepo.essentials()
+        refreshPrivate()
         hasUsageAccess = usageRepo.hasAccess()
         hasNotificationAccess = NoteStore.hasAccess(ctx)
         noteCount = NoteStore.read(ctx).size

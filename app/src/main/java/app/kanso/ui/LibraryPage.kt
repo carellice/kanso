@@ -38,6 +38,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.runtime.produceState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -80,6 +84,7 @@ fun LibraryPage(vm: KansoViewModel) {
         items(groups, key = { it.first.name }) { (category, apps) ->
             CategoryCard(vm, category, apps, Modifier.animateItem(), onLongPress = { menuFor = it })
         }
+        if (vm.privateUser != null) item(key = "private") { PrivateCard(vm, Modifier.animateItem()) }
         item { Spacer(Modifier.navigationBarsPadding()) }
     }
 
@@ -117,6 +122,48 @@ private fun CategoryCard(vm: KansoViewModel, category: Category, apps: List<AppE
                 ) {
                     Text(if (expanded) "Mostra meno" else "Altre ${apps.size - PREVIEW}", style = MaterialTheme.typography.labelMedium, color = K.Muted)
                     Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(18.dp).graphicsLayer { rotationZ = rotation }, tint = K.Muted)
+                }
+            }
+        }
+    }
+}
+
+/** Lo spazio privato: chiuso mostra solo il lucchetto, aperto le sue app. */
+@Composable
+private fun PrivateCard(vm: KansoViewModel, modifier: Modifier) {
+    KCard(modifier.animateContentSize(Motion.soft())) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (vm.privateLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen, null, Modifier.size(20.dp), tint = K.Muted)
+                Spacer(Modifier.width(10.dp))
+                Text("Spazio privato", style = MaterialTheme.typography.titleLarge, color = K.Paper, modifier = Modifier.weight(1f))
+                Text(
+                    if (vm.privateLocked) "Sblocca" else "Blocca", style = MaterialTheme.typography.labelLarge, color = K.Paper,
+                    modifier = Modifier.clip(CircleShape).background(K.SurfaceHigh).pressable { vm.togglePrivate() }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+            }
+            AnimatedVisibility(
+                !vm.privateLocked && vm.privateApps.isNotEmpty(),
+                enter = fadeIn(tween(300)) + expandVertically(Motion.soft()),
+                exit = fadeOut(tween(150)) + shrinkVertically(Motion.soft()),
+            ) {
+                Column(Modifier.padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    vm.privateApps.chunked(4).forEach { row ->
+                        Row(Modifier.fillMaxWidth()) {
+                            row.forEach { app ->
+                                Column(Modifier.weight(1f).pressable { vm.launchPrivate(app) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                                    val icon by produceState(app.icon, app.key) { value = app.loadIcon() }
+                                    Box(Modifier.size(48.dp)) {
+                                        icon?.let { Image(it, null, Modifier.size(48.dp), colorFilter = if (vm.prefs.monochrome) grayscale else null) }
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    AppLabel(app.label, Modifier.padding(horizontal = 2.dp))
+                                }
+                            }
+                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
                 }
             }
         }
