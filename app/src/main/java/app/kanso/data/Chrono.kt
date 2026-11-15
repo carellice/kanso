@@ -48,17 +48,27 @@ object Chrono {
             val running = pausable(n) || (chrono.isCountDown && base < System.currentTimeMillis())
             return ChronoInfo(sbn.key, sbn.packageName, chrono.isCountDown, base, if (running) null else chrono.text.toString())
         }
-        // Live Update (Android 16) in pausa: niente cronometro, il tempo rimasto è scritto nel testo.
-        if (!sbn.isOngoing) return null
-        val texts = listOf(Notification.EXTRA_TITLE, Notification.EXTRA_TEXT, Notification.EXTRA_SUB_TEXT)
-            .mapNotNull { n.extras.getCharSequence(it)?.toString() }
-        val all = texts.joinToString(" ")
-        // shortcut: riconosce sveglie e cronometro dalle parole italiane e inglesi, altre lingue contano come timer.
+        // Live Update (Android 16) in pausa o formati sconosciuti: il tempo, se c'è, è scritto nel testo.
+        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
+        val texts = TEXTS.mapNotNull { n.extras.getCharSequence(it)?.toString()?.takeIf(String::isNotBlank) } +
+            n.extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES).orEmpty().map { it.toString() }
+        val all = (texts + n.channelId.orEmpty()).joinToString(" ")
+        // shortcut: riconosce sveglie, timer e cronometro dalle parole italiane e inglesi, altre lingue no.
         if (all.contains("svegli", true) || all.contains("alarm", true)) return null
-        val time = texts.firstNotNullOfOrNull { TIME.find(it)?.value } ?: return null
-        val stopwatch = all.contains("cronometro", true) || all.contains("stopwatch", true)
-        return ChronoInfo(sbn.key, sbn.packageName, !stopwatch, 0, time)
+        val stopwatch = all.contains("cronometro", true) || all.contains("stopwatch", true) ||
+            n.category == Notification.CATEGORY_STOPWATCH
+        val timer = all.contains("timer", true)
+        if (!sbn.isOngoing && !stopwatch && !timer) return null
+        val time = texts.firstNotNullOfOrNull { TIME.find(it)?.value }
+        // Se il tempo non si legge, la notifica di timer o cronometro si mostra comunque con il suo titolo.
+        val shown = time ?: texts.firstOrNull()?.takeIf { stopwatch || timer }?.take(24) ?: return null
+        return ChronoInfo(sbn.key, sbn.packageName, !stopwatch, 0, shown)
     }
+
+    private val TEXTS = listOf(
+        Notification.EXTRA_TITLE, Notification.EXTRA_TITLE_BIG, Notification.EXTRA_TEXT, Notification.EXTRA_BIG_TEXT,
+        Notification.EXTRA_SUB_TEXT, Notification.EXTRA_INFO_TEXT, Notification.EXTRA_SUMMARY_TEXT,
+    )
 
     private val TIME = Regex("""\b\d{1,2}(:\d{2}){1,2}\b""")
 
