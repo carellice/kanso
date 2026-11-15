@@ -32,6 +32,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Language
@@ -158,7 +159,7 @@ fun SearchOverlay(vm: KansoViewModel) {
             items(results, key = { it.key }) { r ->
                 val m = Modifier.animateItem(fadeInSpec = tween(220), placementSpec = Motion.soft(), fadeOutSpec = tween(120))
                 when (r) {
-                    is Result.App -> AppRow(vm, r.app, m) { run(r) }
+                    is Result.App -> AppRow(vm, r.app, m)
                     is Result.Person -> ResultRow(Icons.Rounded.Person, r.contact.name, r.contact.number, m,
                         trailing = { IconCircle(Icons.Rounded.Call, "Chiama") { vm.start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + r.contact.number))) } },
                     ) { run(r) }
@@ -191,12 +192,14 @@ private fun Hint(modifier: Modifier) {
 }
 
 @Composable
-private fun AppRow(vm: KansoViewModel, app: AppEntry, modifier: Modifier, onClick: () -> Unit) {
+private fun AppRow(vm: KansoViewModel, app: AppEntry, modifier: Modifier) {
+    val from = rememberLaunchFrom()
     Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).pressable(pressedScale = 0.98f, onClick = onClick).padding(horizontal = 8.dp, vertical = 10.dp),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).pressable(pressedScale = 0.98f) { vm.open(app, from.options()) }
+            .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppIcon(vm.appsRepo, app.pkg, 42.dp)
+        AppIcon(vm.appsRepo, app.pkg, 42.dp, modifier = from.modifier)
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(app.label, style = MaterialTheme.typography.titleMedium, color = K.Paper)
@@ -204,6 +207,10 @@ private fun AppRow(vm: KansoViewModel, app: AppEntry, modifier: Modifier, onClic
         }
         if (app.pkg !in vm.tiles && vm.prefs.friction && vm.isDistracting(app)) {
             Box(Modifier.size(6.dp).clip(CircleShape).background(K.Shu))
+        }
+        if (app.pkg !in vm.tiles) {
+            Spacer(Modifier.width(12.dp))
+            IconCircle(Icons.Rounded.Add, "Aggiungi alla Home") { vm.guarded { vm.addTile(app.pkg); vm.toast("${app.label} aggiunta alla Home") } }
         }
     }
 }
