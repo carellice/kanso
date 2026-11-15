@@ -72,6 +72,10 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
         when {
             !vm.hasCalendarAccess -> Text("Tocca per vedere i tuoi impegni", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
             vm.agenda.isEmpty() -> Text("Nessun impegno in vista. Spazio libero, per te.", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
+            vm.agendaSummary != null -> Text(
+                vm.agendaSummary!!, style = MaterialTheme.typography.bodyMedium, color = K.Paper,
+                maxLines = 4, overflow = TextOverflow.Ellipsis,
+            )
             else -> {
                 vm.agenda.take(PEEK).forEach { e ->
                     Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {

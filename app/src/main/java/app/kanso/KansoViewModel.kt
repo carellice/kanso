@@ -22,6 +22,10 @@ import app.kanso.data.Prefs
 import app.kanso.data.Summarizer
 import app.kanso.data.UsageRepository
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 sealed interface SummaryState {
     data object Idle : SummaryState
@@ -46,6 +50,9 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     var agenda by mutableStateOf<List<app.kanso.data.AgendaEvent>>(emptyList()); private set
     var hasCalendarAccess by mutableStateOf(false); private set
     var summary by mutableStateOf<SummaryState>(SummaryState.Idle); private set
+    /** Riassunto AI dell'agenda per la Home; null se l'AI non è configurata o non ha ancora risposto. */
+    var agendaSummary by mutableStateOf<String?>(null); private set
+    private var agendaDigest: String? = null
     private var defaultTiles by mutableStateOf<List<String>>(emptyList())
 
     // Sovrapposizioni aperte sopra le tre pagine.
@@ -76,6 +83,31 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshAgenda() = viewModelScope.launch {
         hasCalendarAccess = ctx.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) == android.content.pm.PackageManager.PERMISSION_GRANTED
         agenda = if (hasCalendarAccess) app.kanso.data.loadAgenda(ctx, AGENDA_DAYS) else emptyList()
+        summarizeAgenda()
+    }
+
+    /** Con Cloudflare configurato la Home mostra il riassunto dei prossimi 7 giorni; si richiede solo se l'agenda cambia. */
+    private suspend fun summarizeAgenda() {
+        if (prefs.cfAccount.isBlank() || prefs.cfToken.isBlank() || agenda.isEmpty()) {
+            agendaSummary = null; agendaDigest = null; return
+        }
+        val now = System.currentTimeMillis()
+        val until = app.kanso.data.dayKey(now + 7 * 86_400_000L, false)
+        val day = SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN)
+        val time = SimpleDateFormat("HH:mm", Locale.ITALIAN)
+        val digest = agenda.filter { it.day < until }.take(40).joinToString("\n") { e ->
+            val d = day.format(Calendar.getInstance().apply { set(e.day / 10000, e.day / 100 % 100 - 1, e.day % 100) }.time)
+            val t = if (e.allDay) "tutto il giorno" else "${time.format(Date(e.begin))}-${time.format(Date(e.end))}"
+            "$d, $t: ${e.title}" + if (e.location.isNotBlank()) " (${e.location})" else ""
+        }
+        val today = day.format(Date(now))
+        val key = "$today|${prefs.cfAccount}|$digest"
+        if (key == agendaDigest) return
+        agendaDigest = key
+        agendaSummary = null
+        if (digest.isBlank()) return
+        agendaSummary = runCatching { Summarizer.summarizeAgenda(prefs.cfAccount, prefs.cfToken, today, digest) }
+            .getOrElse { agendaDigest = null; null } // In caso di errore restano gli eventi singoli; si riprova al prossimo refresh.
     }
 
     fun onHomePressed() {

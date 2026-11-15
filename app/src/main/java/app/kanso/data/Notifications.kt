@@ -75,13 +75,25 @@ object Summarizer {
         "richiede davvero attenzione e ignora pubblicità e promozioni. Al massimo 6 punti brevi, testo semplice " +
         "senza markdown, ogni punto su una riga che inizia con il carattere •."
 
-    suspend fun summarize(account: String, token: String, notes: List<Note>): String = withContext(Dispatchers.IO) {
+    private const val AGENDA = "Sei l'assistente di un launcher dedicato al benessere digitale. Riassumi in italiano " +
+        "gli impegni dei prossimi giorni, con tono calmo e sintetico: cosa c'è oggi, cosa arriva dopo, eventuali giornate " +
+        "piene o libere. Al massimo 3 frasi brevi, testo semplice senza markdown, ogni frase su una riga."
+
+    suspend fun summarize(account: String, token: String, notes: List<Note>): String {
         val digest = notes.joinToString("\n") { "[${it.app}] ${it.title}: ${it.text}".replace('\n', ' ') }
+        return run(account, token, SYSTEM, "Notifiche delle ultime 24 ore:\n$digest")
+    }
+
+    /** [digest]: un evento per riga, già con giorno e orario leggibili. */
+    suspend fun summarizeAgenda(account: String, token: String, today: String, digest: String) =
+        run(account, token, AGENDA, "Oggi è $today. Impegni:\n$digest")
+
+    private suspend fun run(account: String, token: String, system: String, user: String): String = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("max_tokens", 600)
             .put("messages", JSONArray()
-                .put(JSONObject().put("role", "system").put("content", SYSTEM))
-                .put(JSONObject().put("role", "user").put("content", "Notifiche delle ultime 24 ore:\n$digest")))
+                .put(JSONObject().put("role", "system").put("content", system))
+                .put(JSONObject().put("role", "user").put("content", user)))
         val url = URL("https://api.cloudflare.com/client/v4/accounts/${account.trim()}/ai/run/$MODEL")
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"

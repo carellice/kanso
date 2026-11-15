@@ -150,7 +150,8 @@ fun SettingsSheet(vm: KansoViewModel) {
                 val dirty = account.trim() != p.cfAccount || token.trim() != p.cfToken
                 Text(
                     "Usa Cloudflare Workers AI con la tua chiave personale. Crea un token API con il permesso «Workers AI» " +
-                        "su dash.cloudflare.com. Il testo delle notifiche lascia il telefono solo quando premi «Riassumi».",
+                        "su dash.cloudflare.com. Il testo delle notifiche lascia il telefono solo quando premi «Riassumi». " +
+                        "Gli impegni dei prossimi 7 giorni vengono inviati per il riassunto dell'agenda in Home.",
                     style = MaterialTheme.typography.bodyMedium, color = K.Muted,
                 )
                 Spacer(Modifier.height(16.dp))
