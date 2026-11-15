@@ -154,12 +154,15 @@ object Summarizer {
         "tra parentesi quadre, ad esempio: [WhatsApp] Calcetto: Marco e Luca chiedono se ci sei giovedì alle 20. " +
         "Non scrivere mai righe per dire che non ci sono notifiche o che non c'è nulla da leggere."
 
-    private const val AGENDA = "Sei l'assistente di un launcher dedicato al benessere digitale. Riassumi in italiano " +
-        "gli impegni dei prossimi giorni, con tono calmo e sintetico. Scrivi una riga per OGNI giorno che ha impegni, " +
-        "nessuno escluso, e nessuna riga per i giorni senza impegni. Ogni riga inizia con l'etichetta del giorno " +
-        "esattamente come appare negli impegni prima della parentesi (Oggi, Domani, Giovedì…), seguita da due punti " +
-        "e da una o due frasi brevi (al massimo 30 parole) con orari e cose importanti. Testo semplice senza markdown, ad esempio: " +
-        "Domani: dentista alle 10:30, poi pomeriggio libero."
+    private const val AGENDA = "Sei l'assistente di un launcher. Riassumi in italiano gli impegni giorno per giorno, " +
+        "sempre con lo stesso livello di dettaglio. Per OGNI giorno che ha impegni scrivi una sola riga, e nessuna riga " +
+        "per i giorni senza impegni. La riga inizia con l'etichetta del giorno esattamente come appare negli impegni " +
+        "prima della parentesi (Oggi, Domani, Giovedì…), poi due punti. Dopo elenca TUTTI gli impegni di quel giorno, " +
+        "nessuno escluso, in ordine di orario, separati da punto e virgola: per ognuno orario di inizio, cosa è e il luogo " +
+        "tra parentesi se c'è. Gli impegni di tutto il giorno vanno all'inizio, senza orario. Raggruppa gli impegni simili " +
+        "dello stesso giorno: più compleanni diventano «compleanni di Marco, Anna e Luca», più turni o lezioni uguali " +
+        "si scrivono una volta con tutti gli orari. Niente commenti, consigli o frasi di contorno, niente markdown. " +
+        "Esempio: Domani: compleanni di Marco e Anna; 10:30 dentista (via Roma 3, Milano); 18:00 palestra (FitLife)."
 
     suspend fun summarize(account: String, token: String, notes: List<Note>): String {
         // Già raggruppate: un blocco per app, una riga per conversazione, dalla più recente.
@@ -173,11 +176,15 @@ object Summarizer {
 
     /** [digest]: un evento per riga, già con giorno e orario leggibili. */
     suspend fun summarizeAgenda(account: String, token: String, today: String, digest: String) =
-        run(account, token, AGENDA, "Oggi è $today. Impegni:\n$digest")
+        run(account, token, AGENDA, "Oggi è $today. Impegni:\n$digest", maxTokens = 1200, temperature = 0.0)
 
-    private suspend fun run(account: String, token: String, system: String, user: String): String = withContext(Dispatchers.IO) {
+    private suspend fun run(
+        account: String, token: String, system: String, user: String, maxTokens: Int = 600, temperature: Double? = null,
+    ): String = withContext(Dispatchers.IO) {
         val body = JSONObject()
-            .put("max_tokens", 600)
+            .put("max_tokens", maxTokens)
+            // Temperatura 0: a parità di impegni il riassunto esce ogni volta uguale, con lo stesso dettaglio.
+            .apply { temperature?.let { put("temperature", it) } }
             .put("messages", JSONArray()
                 .put(JSONObject().put("role", "system").put("content", system))
                 .put(JSONObject().put("role", "user").put("content", user)))

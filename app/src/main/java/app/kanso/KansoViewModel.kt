@@ -47,6 +47,7 @@ sealed interface SummaryState {
 }
 
 const val AGENDA_DAYS = 30
+private const val AGENDA_SUMMARY_EVERY = 5 * 3_600_000L
 
 class KansoViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx get() = getApplication<Application>()
@@ -65,7 +66,7 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     var summary by mutableStateOf<SummaryState>(SummaryState.Idle); private set
     /** Riassunto AI dell'agenda per la Home; null se l'AI non è configurata o non ha ancora risposto. */
     var agendaSummary by mutableStateOf<String?>(null); private set
-    private var agendaDigest: String? = null
+    var agendaSummarizing by mutableStateOf(false); private set
     private var defaultTiles by mutableStateOf<List<String>>(emptyList())
 
     // Sovrapposizioni aperte sopra le tre pagine.
@@ -149,15 +150,26 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshAgenda() = viewModelScope.launch {
         hasCalendarAccess = ctx.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) == android.content.pm.PackageManager.PERMISSION_GRANTED
         agenda = if (hasCalendarAccess) app.kanso.data.loadAgenda(ctx, AGENDA_DAYS) else emptyList()
-        summarizeAgenda()
+        summarizeAgenda(force = false)
     }
 
-    /** Con Cloudflare configurato la Home mostra il riassunto dei prossimi 7 giorni; si richiede solo se l'agenda cambia. */
-    private suspend fun summarizeAgenda() {
+    /** Il tasto in Home: rifà subito il riassunto dell'agenda. */
+    fun regenerateAgenda() = viewModelScope.launch { summarizeAgenda(force = true) }
+
+    /**
+     * Con Cloudflare configurato la Home mostra il riassunto dei prossimi 7 giorni. Si rifà da solo al massimo
+     * ogni 5 ore o quando cambia il giorno (Oggi e Domani non sarebbero più giusti); altrimenti con il tasto.
+     */
+    private suspend fun summarizeAgenda(force: Boolean) {
         if (prefs.cfAccount.isBlank() || prefs.cfToken.isBlank() || agenda.isEmpty()) {
-            agendaSummary = null; agendaDigest = null; return
+            agendaSummary = null; return
         }
         val now = System.currentTimeMillis()
+        val todayKey = app.kanso.data.dayKey(now, false)
+        val cached = prefs.agendaSummary?.takeIf { prefs.agendaSummaryDay == todayKey }
+        agendaSummary = cached
+        if (!force && cached != null && now - prefs.agendaSummaryAt < AGENDA_SUMMARY_EVERY) return
+        if (agendaSummarizing) return
         val until = app.kanso.data.dayKey(now + 7 * 86_400_000L, false)
         val day = SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN)
         val time = SimpleDateFormat("HH:mm", Locale.ITALIAN)
@@ -174,13 +186,19 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
             "$d, $t: ${e.title}" + if (e.location.isNotBlank()) " (${e.location})" else ""
         }
         val today = day.format(Date(now))
-        val key = "$today|${prefs.cfAccount}|$digest"
-        if (key == agendaDigest) return
-        agendaDigest = key
-        agendaSummary = null
         if (digest.isBlank()) return
-        agendaSummary = runCatching { Summarizer.summarizeAgenda(prefs.cfAccount, prefs.cfToken, today, digest) }
-            .getOrElse { agendaDigest = null; null } // In caso di errore restano gli eventi singoli; si riprova al prossimo refresh.
+        agendaSummarizing = true
+        // In caso di errore resta il riassunto precedente (o gli impegni); si riprova al prossimo ritorno in Home.
+        runCatching { Summarizer.summarizeAgenda(prefs.cfAccount, prefs.cfToken, today, digest) }
+            .onSuccess { agendaSummary = it; prefs.saveAgendaSummary(it, now, todayKey) }
+            .onFailure { if (force) toast("Riassunto non riuscito: ${it.message}") }
+        agendaSummarizing = false
+    }
+
+    /** Apre la navigazione verso il luogo di un impegno: Google Maps se c'è, altrimenti l'app di mappe. */
+    fun navigate(place: String) {
+        val nav = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=" + Uri.encode(place)))
+        if (nav.resolveActivity(ctx.packageManager) != null) start(nav) else view(Uri.parse("geo:0,0?q=" + Uri.encode(place)))
     }
 
     fun onHomePressed() {

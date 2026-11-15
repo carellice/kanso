@@ -52,6 +52,14 @@ class Prefs(context: Context) {
         sp.edit().putString("cfAccount", cfAccount).putString("cfToken", cfToken).apply()
     }
 
+    /** Ultimo riassunto AI dell'agenda, con quando è stato fatto e per quale giorno. */
+    val agendaSummary get() = sp.getString("agendaSummary", null)
+    val agendaSummaryAt get() = sp.getLong("agendaSummaryAt", 0)
+    val agendaSummaryDay get() = sp.getInt("agendaSummaryDay", 0)
+    fun saveAgendaSummary(text: String, at: Long, day: Int) {
+        sp.edit().putString("agendaSummary", text).putLong("agendaSummaryAt", at).putInt("agendaSummaryDay", day).apply()
+    }
+
     val hasPin get() = sp.contains("pinHash")
 
     fun setPin(pin: String) {

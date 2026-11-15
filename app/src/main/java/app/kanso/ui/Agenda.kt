@@ -9,8 +9,21 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Directions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -85,8 +98,9 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
     val lines = remember(vm.agendaSummary) { summaryLines(vm.agendaSummary) }
     val ai = vm.prefs.cfAccount.isNotBlank() && vm.prefs.cfToken.isNotBlank()
     val shape = RoundedCornerShape(24.dp)
+    Column(modifier.fillMaxWidth()) {
     Box(
-        modifier.fillMaxWidth().height(168.dp).clip(shape).background(K.Surface).border(1.dp, K.Line, shape),
+        Modifier.fillMaxWidth().height(168.dp).clip(shape).background(K.Surface).border(1.dp, K.Line, shape),
     ) {
         if (!vm.hasCalendarAccess || days.isEmpty()) {
             Text(
@@ -114,14 +128,13 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
                         }
                         Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = if (day == today) K.Shu else K.Muted, modifier = Modifier.weight(1f))
                         Text(if (events.size == 1) "1 impegno" else "${events.size} impegni", style = MaterialTheme.typography.labelSmall, color = K.Faint)
+                        if (ai) RegenerateButton(vm)
                     }
                     // Con l'AI la pagina è il riassunto; finché non arriva (o se fallisce) restano gli impegni.
-                    // Il riassunto si legge sempre intero: il testo si rimpicciolisce fino a stare nella card, che resta fissa.
-                    if (ai && line != null) BasicText(
-                        highlightTimes(line),
-                        Modifier.weight(1f).fillMaxWidth().padding(bottom = 2.dp),
-                        style = MaterialTheme.typography.bodyLarge.copy(color = K.Paper.copy(alpha = 0.85f)),
-                        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 16.sp, stepSize = 0.5.sp),
+                    // Il riassunto si legge sempre intero: se è lungo scorre in verticale dentro la card, che resta fissa.
+                    if (ai && line != null) Text(
+                        highlightTimes(line), style = MaterialTheme.typography.bodyMedium, color = K.Paper.copy(alpha = 0.85f),
+                        modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 4.dp),
                     ) else {
                         events.take(PEEK).forEach { e ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -152,6 +165,55 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
             }
         }
     }
+    NavigateButton(vm)
+    }
+}
+
+/** Da 2 ore prima di un impegno con un luogo (e finché è in corso): un tocco apre la navigazione fin lì. */
+@Composable
+private fun NavigateButton(vm: KansoViewModel) {
+    val now by produceState(System.currentTimeMillis()) { while (true) { delay(60_000); value = System.currentTimeMillis() } }
+    val next = remember(vm.agenda, now / 60_000) {
+        vm.agenda.firstOrNull { !it.allDay && it.location.isNotBlank() && now < it.end && it.begin - now <= 2 * 3_600_000L }
+    }
+    AnimatedVisibility(
+        next != null,
+        enter = fadeIn(tween(300)) + expandVertically(Motion.soft()),
+        exit = fadeOut(tween(150)) + shrinkVertically(Motion.soft()),
+    ) {
+        val e = next ?: return@AnimatedVisibility
+        val shape = RoundedCornerShape(20.dp)
+        Row(
+            Modifier.padding(top = 10.dp).fillMaxWidth().clip(shape).background(K.Shu.copy(alpha = 0.14f))
+                .border(1.dp, K.Shu.copy(alpha = 0.35f), shape)
+                .pressable(pressedScale = 0.98f) { vm.navigate(e.location) }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.Directions, null, Modifier.size(22.dp), tint = K.Shu)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Naviga verso ${e.location}", style = MaterialTheme.typography.titleSmall, color = K.Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val at = if (e.begin <= now) "in corso" else "alle ${timeFormat.format(Date(e.begin))}"
+                Text("${e.title} · $at", style = MaterialTheme.typography.labelMedium, color = K.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** Rifà subito il riassunto AI dell'agenda; mentre lavora, gira. */
+@Composable
+private fun RegenerateButton(vm: KansoViewModel) {
+    val spin = rememberInfiniteTransition(label = "regen")
+    val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "angle")
+    Icon(
+        Icons.Rounded.Refresh, "Rigenera il riassunto",
+        Modifier.padding(start = 8.dp).size(26.dp).clip(CircleShape)
+            .pressable { if (!vm.agendaSummarizing) vm.regenerateAgenda() }
+            .padding(5.dp)
+            .graphicsLayer { rotationZ = if (vm.agendaSummarizing) angle else 0f },
+        tint = K.Muted,
+    )
 }
 
 /** Minuscolo e senza accenti: «Giovedi» e «giovedì» sono lo stesso giorno. */
