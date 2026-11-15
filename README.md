@@ -17,13 +17,13 @@ Launcher Android open source che mette insieme semplicità e benessere digitale.
 
 | Sinistra | Centro | Destra |
 |---|---|---|
-| **Consapevolezza**: agenda dei prossimi 7 giorni, tempo schermo e sblocchi di oggi, grafico per ora, app più usate, riassunto AI delle notifiche su richiesta | **Home**: orologio facoltativo (spento di default), poi solo una griglia di riquadri tutti uguali (Telefono, Messaggi, Fotocamera, Galleria, Mappe di default) e la barra di ricerca | **Libreria**: tutte le altre app raggruppate per categoria in automatico |
+| **Consapevolezza**: agenda dei prossimi 7 giorni, tempo schermo e sblocchi di oggi, grafico per ora, app più usate | **Home**: orologio facoltativo (spento di default), poi solo una griglia di riquadri tutti uguali (Telefono, Messaggi, Fotocamera, Galleria, Mappe di default) e la barra di ricerca | **Libreria**: tutte le altre app raggruppate per categoria in automatico |
 
 - **Ricerca universale**: app, contatti, indirizzi (aperti in Google Maps), siti e ricerca web.
 - **Attrito consapevole**: prima di aprire un'app fuori dalla Home compare "Vuoi davvero aprire…?" con un respiro guidato. Social, video, giochi e shopping aspettano la durata intera, le altre app la metà.
 - **Blocco**: impostazioni e modifica della Home protette da PIN (salvato come hash SHA-256 con sale) o dal gesto "tieni premuto 3 secondi".
 - **Spazio privato** (Android 15): con Kanso come Home, in fondo alla Libreria compare una sezione apposita con le sue app quando è sbloccato.
-- **Riassunto notifiche** con Cloudflare Workers AI e la tua chiave personale. Kanso tiene solo una copia locale delle notifiche ancora nel pannello (al massimo 24 ore): quelle che togli escono anche dal riassunto. Invia il testo solo quando premi "Riassumi". Le notifiche restano gestite da Android.
+- **Riassunto notifiche** con uno swipe verso il basso in Home, con Cloudflare Workers AI e la tua chiave personale. Kanso tiene solo una copia locale delle notifiche ancora nel pannello (al massimo 24 ore): quelle che togli escono anche dal riassunto. Invia il testo solo quando premi "Riassumi". Le notifiche restano gestite da Android.
 
 ## Permessi
 

@@ -85,7 +85,6 @@ fun AwarenessPage(vm: KansoViewModel) {
             TopAppsCard(vm, usage)
         }
 
-        SummaryCard(vm)
         Spacer(Modifier.navigationBarsPadding().height(60.dp))
     }
 }
