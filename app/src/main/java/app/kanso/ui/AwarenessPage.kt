@@ -72,8 +72,6 @@ fun AwarenessPage(vm: KansoViewModel) {
             IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.guarded { vm.settingsOpen = true } }
         }
 
-        AgendaCard(vm)
-
         val usage = vm.usage
         if (!vm.hasUsageAccess) {
             PermissionCard(
@@ -212,7 +210,7 @@ private fun TopAppsCard(vm: KansoViewModel, usage: DayUsage) {
 }
 
 @Composable
-private fun SummaryCard(vm: KansoViewModel) {
+fun SummaryCard(vm: KansoViewModel) {
     if (!vm.hasNotificationAccess) {
         PermissionCard(
             "Le notifiche, in poche righe",
@@ -291,88 +289,5 @@ private fun BreathingDots() {
         }
         Spacer(Modifier.width(6.dp))
         Text("Sto leggendo con calma…", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
-    }
-}
-
-@Composable
-private fun AgendaCard(vm: KansoViewModel) {
-    val ask = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
-    ) { vm.refreshAgenda() }
-    if (!vm.hasCalendarAccess) {
-        PermissionCard(
-            "La tua agenda",
-            "Gli impegni di oggi e dei prossimi giorni, dal calendario del telefono. Kanso li legge soltanto.",
-            "Mostra gli impegni",
-        ) { ask.launch(android.Manifest.permission.READ_CALENDAR) }
-        return
-    }
-    KCard(Modifier.animateContentSize(Motion.soft())) {
-        Column {
-            Eyebrow("Agenda")
-            if (vm.agenda.isEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Text("Nessun impegno nei prossimi 7 giorni.", style = MaterialTheme.typography.titleLarge, color = K.Paper)
-                Spacer(Modifier.height(4.dp))
-                Text("Spazio libero, per te.", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
-                return@Column
-            }
-            val today = app.kanso.data.dayKey(System.currentTimeMillis(), false)
-            val tomorrow = app.kanso.data.dayKey(System.currentTimeMillis() + 86_400_000L, false)
-            var index = 0
-            vm.agenda.groupBy { it.day }.forEach { (day, events) ->
-                Spacer(Modifier.height(18.dp))
-                Text(dayTitle(day, today, tomorrow), style = MaterialTheme.typography.titleLarge, color = if (day == today) K.Paper else K.Paper.copy(alpha = 0.75f))
-                Spacer(Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    events.forEach { e -> AgendaRow(vm, e, index++) }
-                }
-            }
-        }
-    }
-}
-
-private val timeFormat = SimpleDateFormat("HH:mm", Locale.ITALIAN)
-
-private fun dayTitle(day: Int, today: Int, tomorrow: Int): String = when (day) {
-    today -> "Oggi"
-    tomorrow -> "Domani"
-    else -> {
-        val c = Calendar.getInstance().apply { set(day / 10000, day / 100 % 100 - 1, day % 100) }
-        SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN).format(c.time).replaceFirstChar { it.uppercase() }
-    }
-}
-
-@Composable
-private fun AgendaRow(vm: KansoViewModel, e: app.kanso.data.AgendaEvent, index: Int) {
-    val a = remember(e.id, e.begin) { Animatable(0f) }
-    LaunchedEffect(e.id, e.begin) { delay(60L * index.coerceAtMost(8)); a.animateTo(1f, tween(600, easing = Motion.Calm)) }
-    val now = System.currentTimeMillis()
-    val live = !e.allDay && e.begin <= now && now < e.end
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .graphicsLayer { alpha = a.value; translationX = (1 - a.value) * 18.dp.toPx() }
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-            .pressable(pressedScale = 0.98f) { vm.start(android.content.Intent(android.content.Intent.ACTION_VIEW, app.kanso.data.eventUri(e.id))) }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.width(56.dp)) {
-            if (e.allDay) Text("tutto il\ngiorno", style = MaterialTheme.typography.labelMedium, color = K.Muted)
-            else {
-                Text(timeFormat.format(Date(e.begin)), style = MaterialTheme.typography.titleMedium, color = if (live) K.Shu else K.Paper)
-                Text(timeFormat.format(Date(e.end)), style = MaterialTheme.typography.labelMedium, color = K.Muted)
-            }
-        }
-        Box(Modifier.width(3.dp).height(36.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color(e.color).copy(alpha = 0.9f)))
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(e.title, style = MaterialTheme.typography.titleMedium, color = K.Paper, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            when {
-                live -> Text("in corso", style = MaterialTheme.typography.labelMedium, color = K.Shu)
-                e.location.isNotBlank() -> Text(e.location, style = MaterialTheme.typography.labelMedium, color = K.Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            }
-        }
     }
 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -61,13 +62,15 @@ fun KansoApp(vm: KansoViewModel) {
             vm.friction != null -> vm.cancelFriction()
             vm.pickerOpen -> vm.pickerOpen = false
             vm.settingsOpen -> vm.settingsOpen = false
+            vm.agendaOpen -> vm.agendaOpen = false
+            vm.notesOpen -> vm.notesOpen = false
             vm.searchOpen -> vm.searchOpen = false
             vm.editing -> vm.editing = false
             pager.currentPage != HOME -> scope.launch { pager.animateScrollToPage(HOME) }
         }
     }
 
-    val covered = vm.searchOpen || vm.settingsOpen || vm.friction != null || vm.unlock != null || vm.pickerOpen
+    val covered = vm.searchOpen || vm.agendaOpen || vm.notesOpen || vm.settingsOpen || vm.friction != null || vm.unlock != null || vm.pickerOpen
     val blur by animateDpAsState(if (covered) 18.dp else 0.dp, tween(420, easing = Motion.Calm), label = "blur")
     val dim by animateFloatAsState(if (covered) 0.92f else 1f, tween(420, easing = Motion.Calm), label = "dim")
 
@@ -106,6 +109,19 @@ fun KansoApp(vm: KansoViewModel) {
             enter = fadeIn(tween(260)) + slideInVertically(tween(420, easing = Motion.Calm)) { it / 10 },
             exit = fadeOut(tween(200)) + slideOutVertically(tween(260)) { it / 14 },
         ) { SearchOverlay(vm) }
+
+        AnimatedVisibility(
+            vm.agendaOpen,
+            enter = fadeIn(tween(260)) + scaleIn(tween(460, easing = Motion.Calm), initialScale = 0.92f, transformOrigin = TransformOrigin(0.5f, 0.2f)),
+            exit = fadeOut(tween(200)) + scaleOut(tween(260), targetScale = 0.95f, transformOrigin = TransformOrigin(0.5f, 0.2f)),
+        ) { AgendaOverlay(vm) }
+
+        // Scende dall'alto come la tendina di sistema.
+        AnimatedVisibility(
+            vm.notesOpen,
+            enter = fadeIn(tween(260)) + slideInVertically(tween(480, easing = Motion.Calm)) { -it / 3 },
+            exit = fadeOut(tween(200)) + slideOutVertically(tween(260)) { -it / 4 },
+        ) { NotesOverlay(vm) }
 
         AnimatedVisibility(
             vm.settingsOpen,

@@ -58,7 +58,7 @@ suspend fun loadAgenda(context: Context, days: Int = 7): List<AgendaEvent> = wit
         // Gli eventi di più giorni ancora in corso partono da oggi.
         .map { if (it.day < dayKey(now, false)) it.copy(day = dayKey(now, false)) else it }
         .sortedWith(compareBy({ it.day }, { !it.allDay }, { it.begin }))
-        .take(30)
+        .take(200)
 }
 
 /** Gli eventi "tutto il giorno" sono salvati in UTC: la data va letta in UTC, non nel fuso locale. */

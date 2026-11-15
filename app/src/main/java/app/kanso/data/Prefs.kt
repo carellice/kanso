@@ -28,8 +28,19 @@ class Prefs(context: Context) {
     var lockMode by mutableStateOf(LockMode.valueOf(sp.getString("lockMode", LockMode.NONE.name)!!)); private set
     var cfAccount by mutableStateOf(sp.getString("cfAccount", "")!!); private set
     var cfToken by mutableStateOf(sp.getString("cfToken", "")!!); private set
+    /** Categorie scelte a mano dall'utente, per package. Vincono su quelle indovinate. */
+    var categories by mutableStateOf(
+        sp.getString("categories", "")!!.split(',').mapNotNull { e ->
+            val (pkg, cat) = e.split('=').takeIf { it.size == 2 } ?: return@mapNotNull null
+            runCatching { pkg to Category.valueOf(cat) }.getOrNull()
+        }.toMap(),
+    ); private set
 
     fun saveTiles(list: List<String>) { tiles = list; sp.edit().putString("tiles", list.joinToString(",")).apply() }
+    fun saveCategory(pkg: String, category: Category) {
+        categories = categories + (pkg to category)
+        sp.edit().putString("categories", categories.entries.joinToString(",") { "${it.key}=${it.value.name}" }).apply()
+    }
     fun saveColumns(v: Int) { columns = v; sp.edit().putInt("columns", v).apply() }
     fun saveFriction(v: Boolean) { friction = v; sp.edit().putBoolean("friction", v).apply() }
     fun saveFrictionSeconds(v: Int) { frictionSeconds = v; sp.edit().putInt("frictionSeconds", v).apply() }

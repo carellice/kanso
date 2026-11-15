@@ -13,6 +13,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.kanso.data.AppEntry
 import app.kanso.data.AppsRepository
+import app.kanso.data.Category
 import app.kanso.data.DayUsage
 import app.kanso.data.DistractingCategories
 import app.kanso.data.LockMode
@@ -28,6 +29,8 @@ sealed interface SummaryState {
     data class Done(val text: String, val count: Int) : SummaryState
     data class Failed(val message: String) : SummaryState
 }
+
+const val AGENDA_DAYS = 30
 
 class KansoViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx get() = getApplication<Application>()
@@ -50,6 +53,8 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     var settingsOpen by mutableStateOf(false)
     var editing by mutableStateOf(false)
     var pickerOpen by mutableStateOf(false)
+    var agendaOpen by mutableStateOf(false)
+    var notesOpen by mutableStateOf(false)
     var friction by mutableStateOf<AppEntry?>(null); private set
     var unlock by mutableStateOf<(() -> Unit)?>(null); private set
     /** Aumenta a ogni pressione del tasto Home, per tornare alla pagina centrale. */
@@ -59,7 +64,7 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     val byPkg: Map<String, AppEntry> get() = apps.associateBy { it.pkg }
 
     fun refresh() = viewModelScope.launch {
-        apps = appsRepo.load()
+        apps = appsRepo.load().map { a -> prefs.categories[a.pkg]?.let { a.copy(category = it) } ?: a }
         if (defaultTiles.isEmpty()) defaultTiles = appsRepo.essentials()
         hasUsageAccess = usageRepo.hasAccess()
         hasNotificationAccess = NoteStore.hasAccess(ctx)
@@ -70,11 +75,12 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshAgenda() = viewModelScope.launch {
         hasCalendarAccess = ctx.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        agenda = if (hasCalendarAccess) app.kanso.data.loadAgenda(ctx) else emptyList()
+        agenda = if (hasCalendarAccess) app.kanso.data.loadAgenda(ctx, AGENDA_DAYS) else emptyList()
     }
 
     fun onHomePressed() {
         searchOpen = false; settingsOpen = false; pickerOpen = false; editing = false
+        agendaOpen = false; notesOpen = false
         friction = null; unlock = null
         homeSignal++
     }
@@ -117,6 +123,31 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun unlocked() { val a = unlock; unlock = null; a?.invoke() }
     fun cancelUnlock() { unlock = null }
+
+    fun setCategory(pkg: String, category: Category) {
+        prefs.saveCategory(pkg, category)
+        apps = apps.map { if (it.pkg == pkg) it.copy(category = category) else it }
+    }
+
+    /** Riassunto pronto all'uso: accesso alle notifiche e chiavi Cloudflare presenti. */
+    val summaryReady get() = hasNotificationAccess && prefs.cfAccount.isNotBlank() && prefs.cfToken.isNotBlank()
+
+    /** Swipe verso il basso in Home: il riassunto se configurato, altrimenti la tendina di Android. */
+    fun pullDown() {
+        if (summaryReady) {
+            notesOpen = true
+            if (summary !is SummaryState.Done && summary !is SummaryState.Loading) summarize()
+        } else expandNotifications()
+    }
+
+    // API nascosta ma stabile, usata da molti launcher; serve EXPAND_STATUS_BAR.
+    @android.annotation.SuppressLint("WrongConstant")
+    fun expandNotifications() {
+        runCatching {
+            val sb = ctx.getSystemService("statusbar")
+            Class.forName("android.app.StatusBarManager").getMethod("expandNotificationsPanel").invoke(sb)
+        }.onFailure { toast("Apri le notifiche dall'alto dello schermo") }
+    }
 
     fun addTile(pkg: String) { if (pkg !in tiles) prefs.saveTiles(tiles + pkg) }
     fun removeTile(pkg: String) = prefs.saveTiles(tiles - pkg)

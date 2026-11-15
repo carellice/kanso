@@ -1,6 +1,17 @@
 package app.kanso.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -75,9 +86,40 @@ import java.util.Locale
 
 @Composable
 fun HomePage(vm: KansoViewModel) {
+    // Il contenuto segue il dito con resistenza; oltre la soglia si apre ricerca (su) o notifiche (giù).
+    val pull = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    val threshold = with(LocalDensity.current) { 72.dp.toPx() }
     Column(
         Modifier
             .fillMaxSize()
+            .graphicsLayer {
+                translationY = pull.value
+                val p = (pull.value.absoluteValue / (threshold * 3)).coerceIn(0f, 1f)
+                alpha = 1f - p * 0.6f
+                scaleX = 1f - p * 0.05f; scaleY = scaleX
+            }
+            .pointerInput(vm.editing) {
+                if (vm.editing) return@pointerInput
+                detectVerticalDragGestures(
+                    onVerticalDrag = { change, dy ->
+                        change.consume()
+                        val before = pull.value
+                        val next = before + dy * 0.45f
+                        if ((before.absoluteValue < threshold) != (next.absoluteValue < threshold)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        scope.launch { pull.snapTo(next) }
+                    },
+                    onDragEnd = {
+                        when {
+                            pull.value < -threshold -> vm.searchOpen = true
+                            pull.value > threshold -> vm.pullDown()
+                        }
+                        scope.launch { pull.animateTo(0f, spring(0.75f, 260f)) }
+                    },
+                    onDragCancel = { scope.launch { pull.animateTo(0f, spring(0.75f, 260f)) } },
+                )
+            }
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 24.dp)
@@ -102,6 +144,12 @@ fun HomePage(vm: KansoViewModel) {
                 }
             } else Spacer(Modifier.fillMaxWidth())
         }
+
+        AnimatedVisibility(
+            !vm.editing,
+            enter = fadeIn(tween(300)) + expandVertically(Motion.soft()),
+            exit = fadeOut(tween(150)) + shrinkVertically(Motion.soft()),
+        ) { AgendaPeek(vm, Modifier.padding(top = 14.dp)) }
 
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { TileGrid(vm) }
 

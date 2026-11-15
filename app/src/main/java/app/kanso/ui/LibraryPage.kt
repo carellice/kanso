@@ -3,7 +3,14 @@ package app.kanso.ui
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -139,18 +146,46 @@ private fun AppRows(vm: KansoViewModel, apps: List<AppEntry>, onLongPress: (AppE
 
 @Composable
 private fun AppMenu(vm: KansoViewModel, app: AppEntry, onDismiss: () -> Unit) {
+    var choosing by remember { mutableStateOf(false) }
     ModalCard(onDismiss) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.animateContentSize(Motion.soft()), horizontalAlignment = Alignment.CenterHorizontally) {
             AppIcon(vm.appsRepo, app.pkg, 64.dp)
             Spacer(Modifier.height(14.dp))
             Text(app.label, style = MaterialTheme.typography.headlineMedium, color = K.Paper)
             Text(app.category.title, style = MaterialTheme.typography.bodyMedium, color = K.Muted)
             Spacer(Modifier.height(24.dp))
-            PillButton("Aggiungi alla Home", Modifier.fillMaxWidth()) { onDismiss(); vm.guarded { vm.addTile(app.pkg) } }
-            Spacer(Modifier.height(10.dp))
-            PillButton("Informazioni app", Modifier.fillMaxWidth(), filled = false) {
-                onDismiss()
-                vm.start(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", app.pkg, null)))
+            AnimatedContent(
+                choosing,
+                transitionSpec = { fadeIn(tween(260, 80)) togetherWith fadeOut(tween(160)) },
+                label = "appMenu",
+            ) { pick ->
+                if (pick) Column(
+                    Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Category.entries.forEach { c ->
+                        val current = c == app.category
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                                .background(if (current) K.Surface else K.SurfaceHigh)
+                                .pressable(pressedScale = 0.98f) { vm.setCategory(app.pkg, c); onDismiss() }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(c.title, style = MaterialTheme.typography.titleMedium, color = K.Paper, modifier = Modifier.weight(1f))
+                            if (current) Icon(Icons.Rounded.Check, null, Modifier.size(18.dp), tint = K.Shu)
+                        }
+                    }
+                } else Column {
+                    PillButton("Aggiungi alla Home", Modifier.fillMaxWidth()) { onDismiss(); vm.guarded { vm.addTile(app.pkg) } }
+                    Spacer(Modifier.height(10.dp))
+                    PillButton("Cambia categoria", Modifier.fillMaxWidth(), filled = false) { choosing = true }
+                    Spacer(Modifier.height(10.dp))
+                    PillButton("Informazioni app", Modifier.fillMaxWidth(), filled = false) {
+                        onDismiss()
+                        vm.start(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", app.pkg, null)))
+                    }
+                }
             }
         }
     }

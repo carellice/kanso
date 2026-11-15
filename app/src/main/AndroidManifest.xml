@@ -4,6 +4,7 @@
 
     <!-- Solo per il riassunto delle notifiche con Cloudflare Workers AI, su richiesta. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Solo lettura: l'agenda con gli impegni dei prossimi giorni. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
