@@ -39,14 +39,30 @@ object Chrono {
             return ChronoInfo(sbn.key, sbn.packageName, n.extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN), n.`when`, null)
         }
         // Google Orologio e AOSP disegnano un Chronometer dentro una vista personalizzata: la gonfio e lo leggo.
-        val views = n.contentView ?: n.bigContentView ?: return null
-        val chrono = find(views.apply(c, null)) ?: return null
-        val base = System.currentTimeMillis() - (SystemClock.elapsedRealtime() - chrono.base)
-        // In corso c'è l'azione «Pausa» (Pause, Pausa…); in pausa no. Un timer già scaduto continua a contare in negativo.
-        val running = n.actions.orEmpty().any { it.title?.contains("pau", ignoreCase = true) == true } ||
-            (chrono.isCountDown && base < System.currentTimeMillis())
-        return ChronoInfo(sbn.key, sbn.packageName, chrono.isCountDown, base, if (running) null else chrono.text.toString())
+        // Ogni vista si prova a parte: se una non si gonfia (risorse dell'Orologio non compatibili) si passa alla successiva.
+        val chrono = listOfNotNull(n.contentView, n.bigContentView, n.headsUpContentView)
+            .firstNotNullOfOrNull { views -> runCatching { find(views.apply(c, null)) }.getOrNull() }
+        if (chrono != null) {
+            val base = System.currentTimeMillis() - (SystemClock.elapsedRealtime() - chrono.base)
+            // In corso c'è l'azione «Pausa» (Pause, Pausa…); in pausa no. Un timer già scaduto continua a contare in negativo.
+            val running = pausable(n) || (chrono.isCountDown && base < System.currentTimeMillis())
+            return ChronoInfo(sbn.key, sbn.packageName, chrono.isCountDown, base, if (running) null else chrono.text.toString())
+        }
+        // Live Update (Android 16) in pausa: niente cronometro, il tempo rimasto è scritto nel testo.
+        if (!sbn.isOngoing) return null
+        val texts = listOf(Notification.EXTRA_TITLE, Notification.EXTRA_TEXT, Notification.EXTRA_SUB_TEXT)
+            .mapNotNull { n.extras.getCharSequence(it)?.toString() }
+        val all = texts.joinToString(" ")
+        // shortcut: riconosce sveglie e cronometro dalle parole italiane e inglesi, altre lingue contano come timer.
+        if (all.contains("svegli", true) || all.contains("alarm", true)) return null
+        val time = texts.firstNotNullOfOrNull { TIME.find(it)?.value } ?: return null
+        val stopwatch = all.contains("cronometro", true) || all.contains("stopwatch", true)
+        return ChronoInfo(sbn.key, sbn.packageName, !stopwatch, 0, time)
     }
+
+    private val TIME = Regex("""\b\d{1,2}(:\d{2}){1,2}\b""")
+
+    private fun pausable(n: Notification) = n.actions.orEmpty().any { it.title?.contains("pau", ignoreCase = true) == true }
 
     private fun find(v: View): Chronometer? = when (v) {
         is Chronometer -> v
