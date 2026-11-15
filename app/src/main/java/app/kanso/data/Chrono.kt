@@ -27,6 +27,11 @@ object Chrono {
         active = (active.filter { it.key != sbn.key } + listOfNotNull(info)).sortedBy { it.key }
     }
 
+    /** Riallinea con tutte le notifiche presenti nel pannello. */
+    fun sync(c: Context, all: Array<StatusBarNotification>) {
+        active = all.mapNotNull { runCatching { read(c, it) }.getOrNull() }.sortedBy { it.key }
+    }
+
     fun remove(key: String) { active = active.filter { it.key != key } }
     fun clear() { active = emptyList() }
 

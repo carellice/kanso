@@ -27,6 +27,8 @@ import app.kanso.data.DayUsage
 import app.kanso.data.DistractingCategories
 import app.kanso.data.LockMode
 import app.kanso.data.NoteStore
+import app.kanso.data.NotificationCollector
+import app.kanso.data.Chrono
 import app.kanso.data.Prefs
 import app.kanso.data.Summarizer
 import app.kanso.data.UsageRepository
@@ -132,7 +134,13 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         refreshPrivate()
         hasUsageAccess = usageRepo.hasAccess()
         hasNotificationAccess = NoteStore.hasAccess(ctx)
-        noteCount = NoteStore.read(ctx).size
+        if (hasNotificationAccess) {
+            // Se Android ha staccato il servizio delle notifiche (succede dopo gli aggiornamenti) lo si ricollega.
+            val active = NotificationCollector.active()
+            if (active == null) NotificationCollector.rebind(ctx)
+            else { Chrono.sync(ctx, active); NoteStore.keep(ctx, active.map { it.key }.toSet()) }
+        }
+        noteCount = currentNotes().size
         usage = usageRepo.today()
         refreshAgenda()
     }
@@ -153,7 +161,14 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         val day = SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN)
         val time = SimpleDateFormat("HH:mm", Locale.ITALIAN)
         val digest = agenda.filter { it.day < until }.take(40).joinToString("\n") { e ->
-            val d = day.format(Calendar.getInstance().apply { set(e.day / 10000, e.day / 100 % 100 - 1, e.day % 100) }.time)
+            val date = Calendar.getInstance().apply { set(e.day / 10000, e.day / 100 % 100 - 1, e.day % 100) }.time
+            // L'etichetta (Oggi, Domani, Giovedì) è quella con cui la Home abbina la frase alla pagina del giorno.
+            val label = when (e.day) {
+                app.kanso.data.dayKey(now, false) -> "Oggi"
+                app.kanso.data.dayKey(now + 86_400_000L, false) -> "Domani"
+                else -> SimpleDateFormat("EEEE", Locale.ITALIAN).format(date).replaceFirstChar { it.uppercase() }
+            }
+            val d = "$label (${SimpleDateFormat("d MMMM", Locale.ITALIAN).format(date)})"
             val t = if (e.allDay) "tutto il giorno" else "${time.format(Date(e.begin))}-${time.format(Date(e.end))}"
             "$d, $t: ${e.title}" + if (e.location.isNotBlank()) " (${e.location})" else ""
         }
@@ -237,7 +252,7 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         if (summaryReady) {
             notesOpen = true
             // Si rifà se nel frattempo sono arrivate o sono state tolte notifiche.
-            if (summary !is SummaryState.Loading && (summary !is SummaryState.Done || summarizedNotes != NoteStore.read(ctx))) summarize()
+            if (summary !is SummaryState.Loading && (summary !is SummaryState.Done || summarizedNotes != currentNotes())) summarize()
         } else expandNotifications()
     }
 
@@ -263,8 +278,12 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     private var summarizedNotes: List<app.kanso.data.Note>? = null
 
+    /** Le notifiche ora nel pannello; se il servizio non è collegato, la copia locale. */
+    private fun currentNotes(): List<app.kanso.data.Note> =
+        NotificationCollector.active()?.mapNotNull { NotificationCollector.toNote(ctx, it) }?.sortedBy { it.time } ?: NoteStore.read(ctx)
+
     fun summarize() {
-        val notes = NoteStore.read(ctx)
+        val notes = currentNotes()
         summarizedNotes = notes
         when {
             prefs.cfAccount.isBlank() || prefs.cfToken.isBlank() ->

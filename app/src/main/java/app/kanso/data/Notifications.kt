@@ -23,14 +23,19 @@ data class Note(val time: Long, val app: String, val title: String, val text: St
  */
 class NotificationCollector : NotificationListenerService() {
     override fun onListenerConnected() {
-        Chrono.clear()
+        instance = this
         val active = runCatching { activeNotifications }.getOrNull() ?: return
-        active.forEach { Chrono.update(this, it) }
+        Chrono.sync(this, active)
         // Quelle tolte mentre Kanso non ascoltava escono dal riassunto.
         NoteStore.keep(this, active.map { it.key }.toSet())
     }
 
-    override fun onListenerDisconnected() = Chrono.clear()
+    override fun onListenerDisconnected() {
+        instance = null
+        Chrono.clear()
+        // Android a volte stacca il servizio (dopo un aggiornamento, per memoria): si chiede subito di ricollegarlo.
+        rebind(this)
+    }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         Chrono.remove(sbn.key)
@@ -39,15 +44,42 @@ class NotificationCollector : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         Chrono.update(this, sbn)
-        val n = sbn.notification
-        if (sbn.isOngoing || sbn.packageName == packageName || n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
-        val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
-        val text = (n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: n.extras.getCharSequence(Notification.EXTRA_TEXT))
-            ?.toString().orEmpty()
-        if (title.isBlank() && text.isBlank()) return
-        val app = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
-            .getOrDefault(sbn.packageName)
-        NoteStore.add(this, Note(sbn.postTime, app, title.take(120), text.take(400), sbn.packageName, sbn.key))
+        toNote(this, sbn)?.let { NoteStore.add(this, it) }
+    }
+
+    companion object {
+        @Volatile private var instance: NotificationCollector? = null
+
+        /** Le notifiche ora nel pannello; null se il servizio non è collegato. */
+        fun active(): Array<StatusBarNotification>? = instance?.let { runCatching { it.activeNotifications }.getOrNull() }
+
+        fun rebind(c: Context) = runCatching { requestRebind(ComponentName(c, NotificationCollector::class.java)) }
+
+        /** La notifica in forma leggibile per il riassunto; null per quelle in corso, di riepilogo o vuote. */
+        fun toNote(c: Context, sbn: StatusBarNotification): Note? {
+            val n = sbn.notification
+            if (sbn.isOngoing || sbn.packageName == c.packageName || n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
+            val e = n.extras
+            val title = (e.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE) ?: e.getCharSequence(Notification.EXTRA_TITLE))
+                ?.toString().orEmpty()
+            // Chat: gli ultimi messaggi con il mittente; liste (es. posta): le righe; altrimenti il testo.
+            @Suppress("DEPRECATION")
+            val messages = e.getParcelableArray(Notification.EXTRA_MESSAGES).orEmpty().mapNotNull { it as? android.os.Bundle }
+                .mapNotNull { b ->
+                    val text = b.getCharSequence("text")?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                    b.getCharSequence("sender")?.let { "$it: $text" } ?: text
+                }
+            val lines = e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES).orEmpty().map { it.toString() }
+            val text = when {
+                messages.isNotEmpty() -> messages.takeLast(6).joinToString(" / ")
+                lines.isNotEmpty() -> lines.take(6).joinToString(" / ")
+                else -> (e.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: e.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty()
+            }
+            if (title.isBlank() && text.isBlank()) return null
+            val pm = c.packageManager
+            val app = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(sbn.packageName, 0)).toString() }.getOrDefault(sbn.packageName)
+            return Note(sbn.postTime, app, title.take(120), text.take(600), sbn.packageName, sbn.key)
+        }
     }
 }
 
@@ -101,19 +133,27 @@ object Summarizer {
     private const val MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 
     private const val SYSTEM = "Sei l'assistente di un launcher dedicato al benessere digitale. Riassumi in italiano " +
-        "le notifiche ricevute, con tono calmo e sintetico: raggruppa per persona o app, evidenzia solo ciò che " +
-        "richiede davvero attenzione e ignora pubblicità e promozioni. Al massimo 6 punti brevi, testo semplice " +
-        "senza markdown, ogni punto su una riga che inizia con il nome esatto dell'app tra parentesi quadre, " +
-        "come appare nelle notifiche, ad esempio: [WhatsApp] Marco chiede se ci sei stasera."
+        "le notifiche ancora da leggere, già divise per app e per conversazione, con tono calmo e sintetico. " +
+        "Una riga per ogni conversazione (chat, persona, gruppo, thread di posta) o per ogni app se non ci sono " +
+        "conversazioni; unisci le notifiche della stessa conversazione in un'unica frase che dice chi scrive e cosa " +
+        "vuole. Metti prima ciò che richiede una risposta o un'azione, riduci a pochissime parole pubblicità e " +
+        "promozioni. Al massimo 8 righe, testo semplice senza markdown, ogni riga inizia con il nome esatto dell'app " +
+        "tra parentesi quadre, ad esempio: [WhatsApp] Calcetto: Marco e Luca chiedono se ci sei giovedì alle 20."
 
     private const val AGENDA = "Sei l'assistente di un launcher dedicato al benessere digitale. Riassumi in italiano " +
-        "gli impegni dei prossimi giorni, con tono calmo e sintetico: cosa c'è oggi, cosa arriva dopo, eventuali giornate " +
-        "piene o libere. Una frase breve per ogni giorno con impegni, testo semplice senza markdown, ogni frase su una " +
-        "riga che inizia con il giorno seguito da due punti: Oggi, Domani oppure il nome del giorno della settimana, " +
-        "ad esempio: Domani: dentista alle 10:30, poi pomeriggio libero."
+        "gli impegni dei prossimi giorni, con tono calmo e sintetico. Scrivi una riga per OGNI giorno che ha impegni, " +
+        "nessuno escluso, e nessuna riga per i giorni senza impegni. Ogni riga inizia con l'etichetta del giorno " +
+        "esattamente come appare negli impegni prima della parentesi (Oggi, Domani, Giovedì…), seguita da due punti " +
+        "e da una o due frasi brevi con orari e cose importanti. Testo semplice senza markdown, ad esempio: " +
+        "Domani: dentista alle 10:30, poi pomeriggio libero."
 
     suspend fun summarize(account: String, token: String, notes: List<Note>): String {
-        val digest = notes.joinToString("\n") { "[${it.app}] ${it.title}: ${it.text}".replace('\n', ' ') }
+        // Già raggruppate: un blocco per app, una riga per conversazione, dalla più recente.
+        val digest = notes.sortedByDescending { it.time }.groupBy { it.app }.entries.joinToString("\n\n") { (app, list) ->
+            "[$app]\n" + list.groupBy { it.title }.entries.joinToString("\n") { (title, msgs) ->
+                "- ${title.ifBlank { "(senza titolo)" }}: " + msgs.reversed().joinToString(" / ") { it.text }.replace('\n', ' ').take(900)
+            }
+        }
         return run(account, token, SYSTEM, "Notifiche ancora da leggere:\n$digest")
     }
 
