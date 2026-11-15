@@ -264,8 +264,17 @@ fun NotesOverlay(vm: KansoViewModel) {
             .fillMaxSize()
             .background(K.Ink.copy(alpha = 0.9f))
             .pointerInput(Unit) { detectTapGestures { vm.notesOpen = false } }
-            // Uno swipe verso l'alto richiude il pannello, come la tendina di sistema.
-            .pointerInput(Unit) { detectVerticalDragGestures { _, dy -> if (dy < -24) vm.notesOpen = false } },
+            // Su richiude il pannello, come la tendina di sistema; un altro swipe giù apre le notifiche di Android.
+            .pointerInput(Unit) {
+                var total = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { total = 0f },
+                    onDragEnd = {
+                        if (total < -24.dp.toPx()) vm.notesOpen = false
+                        else if (total > 40.dp.toPx()) { vm.notesOpen = false; vm.expandNotifications() }
+                    },
+                ) { _, dy -> total += dy }
+            },
     ) {
         Column(
             Modifier
