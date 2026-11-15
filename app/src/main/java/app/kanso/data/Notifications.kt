@@ -88,7 +88,9 @@ object Summarizer {
 
     private const val AGENDA = "Sei l'assistente di un launcher dedicato al benessere digitale. Riassumi in italiano " +
         "gli impegni dei prossimi giorni, con tono calmo e sintetico: cosa c'è oggi, cosa arriva dopo, eventuali giornate " +
-        "piene o libere. Al massimo 3 frasi brevi, testo semplice senza markdown, ogni frase su una riga."
+        "piene o libere. Al massimo 3 frasi brevi, testo semplice senza markdown, ogni frase su una riga che inizia con " +
+        "un'etichetta breve seguita da due punti: Oggi, Domani, Questa settimana oppure il nome del giorno, " +
+        "ad esempio: Domani: dentista alle 10:30, poi pomeriggio libero."
 
     suspend fun summarize(account: String, token: String, notes: List<Note>): String {
         val digest = notes.joinToString("\n") { "[${it.app}] ${it.title}: ${it.text}".replace('\n', ' ') }

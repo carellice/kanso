@@ -27,7 +27,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.Today
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,9 +84,7 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
         when {
             !vm.hasCalendarAccess -> Text("Tocca per vedere i tuoi impegni", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
             vm.agenda.isEmpty() -> Text("Nessun impegno in vista. Spazio libero, per te.", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
-            vm.agendaSummary != null -> Text(
-                vm.agendaSummary!!, style = MaterialTheme.typography.bodyMedium, color = K.Paper,
-            )
+            vm.agendaSummary != null -> AgendaSummary(vm.agendaSummary!!)
             else -> {
                 vm.agenda.take(PEEK).forEach { e ->
                     Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -95,6 +105,59 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+/** Il riassunto AI dell'agenda: una riga per frase, con icona, etichetta del giorno e orari in evidenza. */
+@Composable
+private fun AgendaSummary(text: String) {
+    val lines = remember(text) {
+        text.lines().map { it.trim().trimStart('-', '•', '*', ' ') }.filter { it.isNotBlank() }.map { line ->
+            // L'etichetta è il testo prima dei due punti, se breve e non un orario (es. «Domani: …», non «10:30»).
+            val label = line.substringBefore(':', "").trim().takeIf { it.length in 1..20 && !it.last().isDigit() }
+            label to (if (label != null) line.substringAfter(':').trim() else line)
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(14.dp), tint = K.Shu)
+            Spacer(Modifier.width(6.dp))
+            Eyebrow("In sintesi")
+        }
+        lines.forEach { (label, body) ->
+            val today = label?.equals("oggi", ignoreCase = true) == true
+            Row {
+                Box(
+                    Modifier.size(30.dp).clip(CircleShape).background(if (today) K.Shu.copy(alpha = 0.16f) else K.SurfaceHigh),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(summaryIcon(label), null, Modifier.size(16.dp), tint = if (today) K.Shu else K.Muted) }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f).padding(top = if (label == null) 5.dp else 0.dp)) {
+                    if (label != null) Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = if (today) K.Shu else K.Muted)
+                    Text(highlightTimes(body), style = MaterialTheme.typography.bodyMedium, color = K.Paper.copy(alpha = 0.85f))
+                }
+            }
+        }
+    }
+}
+
+private fun summaryIcon(label: String?): ImageVector = when (label?.lowercase()) {
+    null -> Icons.Rounded.AutoAwesome
+    "oggi" -> Icons.Rounded.Today
+    "domani" -> Icons.Rounded.Event
+    else -> Icons.Rounded.CalendarMonth
+}
+
+private val TimeRegex = Regex("""\b\d{1,2}[:.]\d{2}\b""")
+
+/** Orari in grassetto e a pieno colore, il resto più tenue. */
+private fun highlightTimes(text: String) = buildAnnotatedString {
+    var last = 0
+    TimeRegex.findAll(text).forEach { m ->
+        append(text.substring(last, m.range.first))
+        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = K.Paper)) { append(m.value) }
+        last = m.range.last + 1
+    }
+    append(text.substring(last))
 }
 
 /** Tutti gli impegni dei prossimi giorni, raggruppati per giorno. */
