@@ -26,6 +26,8 @@ class Prefs(context: Context) {
     var monochrome by mutableStateOf(sp.getBoolean("monochrome", true)); private set
     var showClock by mutableStateOf(sp.getBoolean("showClock", false)); private set
     var lockMode by mutableStateOf(LockMode.valueOf(sp.getString("lockMode", LockMode.NONE.name)!!)); private set
+    // Chi aggiorna da una versione precedente ha già delle preferenze: niente presentazione.
+    var onboarded by mutableStateOf(sp.getBoolean("onboarded", sp.all.isNotEmpty())); private set
     var cfAccount by mutableStateOf(sp.getString("cfAccount", "")!!); private set
     var cfToken by mutableStateOf(sp.getString("cfToken", "")!!); private set
     /** Categorie scelte a mano dall'utente, per package. Vincono su quelle indovinate. */
@@ -46,6 +48,7 @@ class Prefs(context: Context) {
     fun saveFrictionSeconds(v: Int) { frictionSeconds = v; sp.edit().putInt("frictionSeconds", v).apply() }
     fun saveMonochrome(v: Boolean) { monochrome = v; sp.edit().putBoolean("monochrome", v).apply() }
     fun saveShowClock(v: Boolean) { showClock = v; sp.edit().putBoolean("showClock", v).apply() }
+    fun saveOnboarded() { onboarded = true; sp.edit().putBoolean("onboarded", true).apply() }
     fun saveLockMode(v: LockMode) { lockMode = v; sp.edit().putString("lockMode", v.name).apply() }
     fun saveCloudflare(account: String, token: String) {
         cfAccount = account.trim(); cfToken = token.trim()

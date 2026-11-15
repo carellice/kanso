@@ -166,6 +166,13 @@ fun KansoApp(vm: KansoViewModel) {
             enter = fadeIn(tween(260)) + scaleIn(tween(460, easing = Motion.Calm), initialScale = 0.96f),
             exit = fadeOut(tween(200)),
         ) { UnlockPrompt(vm) }
+
+        // Al primo avvio la presentazione copre tutto; chiudendosi si dissolve sulla Home.
+        AnimatedVisibility(
+            !vm.prefs.onboarded,
+            enter = fadeIn(tween(0)),
+            exit = fadeOut(tween(520, easing = Motion.Calm)) + scaleOut(tween(620, easing = Motion.Calm), targetScale = 1.06f),
+        ) { Onboarding(vm) }
     }
 }
 

@@ -59,11 +59,8 @@ fun SettingsSheet(vm: KansoViewModel) {
     val context = LocalContext.current
     val p = vm.prefs
     var settingPin by remember { mutableStateOf(false) }
-    val homeRole = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
-    val isHome = remember(vm.apps) {
-        context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
-            ?.activityInfo?.packageName == context.packageName
-    }
+    val isHome = rememberIsHome(vm)
+    val requestHome = rememberHomeRequest(vm)
 
     Box(Modifier.fillMaxSize().background(K.Ink)) {
         Column(
@@ -77,15 +74,8 @@ fun SettingsSheet(vm: KansoViewModel) {
             Section("Launcher") {
                 Row_(
                     "Kanso come Home", if (isHome) "Attivo" else "Tocca per impostarlo come launcher predefinito", done = isHome,
-                ) {
-                    if (Build.VERSION.SDK_INT >= 29) {
-                        val rm = context.getSystemService(RoleManager::class.java)
-                        if (rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
-                            homeRole.launch(rm.createRequestRoleIntent(RoleManager.ROLE_HOME)); return@Row_
-                        }
-                    }
-                    vm.start(Intent(Settings.ACTION_HOME_SETTINGS))
-                }
+                    onClick = requestHome,
+                )
                 Divider()
                 Row_("Dati di utilizzo", "Tempo schermo e sblocchi", done = vm.hasUsageAccess) {
                     vm.start(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
@@ -227,11 +217,34 @@ private fun Label(text: String) {
     Spacer(Modifier.height(10.dp))
 }
 
+/** Vero se Kanso è il launcher predefinito; si ricontrolla a ogni ritorno nell'app. */
 @Composable
-private fun Divider() = Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(K.Line))
+fun rememberIsHome(vm: KansoViewModel): Boolean {
+    val context = LocalContext.current
+    return remember(vm.apps, vm.returnSignal) {
+        context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+            ?.activityInfo?.packageName == context.packageName
+    }
+}
+
+/** Chiede di diventare la Home: il dialogo di sistema dove c'è, altrimenti le impostazioni. */
+@Composable
+fun rememberHomeRequest(vm: KansoViewModel): () -> Unit {
+    val context = LocalContext.current
+    val homeRole = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
+    return {
+        val rm = if (Build.VERSION.SDK_INT >= 29) context.getSystemService(RoleManager::class.java) else null
+        if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
+            homeRole.launch(rm.createRequestRoleIntent(RoleManager.ROLE_HOME))
+        } else vm.start(Intent(Settings.ACTION_HOME_SETTINGS))
+    }
+}
 
 @Composable
-private fun Row_(title: String, subtitle: String, done: Boolean? = null, onClick: () -> Unit) {
+private fun Divider() =Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(K.Line))
+
+@Composable
+internal fun Row_(title: String, subtitle: String, done: Boolean? = null, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).pressable(pressedScale = 0.98f, onClick = onClick).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
