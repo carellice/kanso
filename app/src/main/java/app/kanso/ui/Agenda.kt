@@ -9,6 +9,11 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
@@ -97,9 +102,14 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
     val lines = remember(vm.agendaSummary) { summaryLines(vm.agendaSummary) }
     val ai = vm.prefs.cfAccount.isNotBlank() && vm.prefs.cfToken.isNotBlank()
     val shape = RoundedCornerShape(24.dp)
+    // La card ha la stessa altezza per tutte le pagine: quella della pagina più lunga. I pallini restano in fondo,
+    // così si scorre sempre nello stesso punto.
+    val density = LocalDensity.current
+    var tallest by remember(days, lines, ai) { mutableIntStateOf(0) }
+    val cardHeight = maxOf(168.dp, with(density) { tallest.toDp() } + 25.dp)
     Column(modifier.fillMaxWidth()) {
     Box(
-        Modifier.fillMaxWidth().heightIn(min = 168.dp).animateContentSize(Motion.soft()).clip(shape).background(K.Surface).border(1.dp, K.Line, shape),
+        Modifier.fillMaxWidth().height(cardHeight).animateContentSize(Motion.soft()).clip(shape).background(K.Surface).border(1.dp, K.Line, shape),
     ) {
         if (!vm.hasCalendarAccess || days.isEmpty()) {
             Text(
@@ -110,14 +120,20 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
             return@Box
         }
         val pager = rememberPagerState { days.size }
-        Column(Modifier.fillMaxWidth()) {
-            HorizontalPager(pager, Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) { page ->
+        Column(Modifier.fillMaxSize()) {
+            // Tutte le pagine composte subito: così si misurano tutte e si conosce la più lunga.
+            HorizontalPager(
+                pager, Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.Top, beyondViewportPageCount = days.size,
+            ) { page ->
                 val (day, events) = days[page]
                 val title = dayTitle(day, today, tomorrow)
                 // La frase del riassunto si abbina alla pagina dal giorno con cui inizia (Oggi, Domani, Giovedì…).
                 val line = lines.firstOrNull { (label, _) -> label != null && plain(label.substringBefore(' ')) == plain(title.substringBefore(' ')) }?.second
                 Column(
-                    Modifier.fillMaxWidth().pressable(pressedScale = 0.98f, onClick = open).padding(start = 20.dp, end = 20.dp, top = 16.dp),
+                    Modifier.fillMaxWidth()
+                        .wrapContentHeight(Alignment.Top, unbounded = true)
+                        .onSizeChanged { if (it.height > tallest) tallest = it.height }
+                        .pressable(pressedScale = 0.98f, onClick = open).padding(start = 20.dp, end = 20.dp, top = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
