@@ -226,7 +226,8 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     fun pullDown() {
         if (summaryReady) {
             notesOpen = true
-            if (summary !is SummaryState.Done && summary !is SummaryState.Loading) summarize()
+            // Si rifà se nel frattempo sono arrivate o sono state tolte notifiche.
+            if (summary !is SummaryState.Loading && (summary !is SummaryState.Done || summarizedNotes != NoteStore.read(ctx))) summarize()
         } else expandNotifications()
     }
 
@@ -250,12 +251,15 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         prefs.saveTiles(list)
     }
 
+    private var summarizedNotes: List<app.kanso.data.Note>? = null
+
     fun summarize() {
         val notes = NoteStore.read(ctx)
+        summarizedNotes = notes
         when {
             prefs.cfAccount.isBlank() || prefs.cfToken.isBlank() ->
                 summary = SummaryState.Failed("Inserisci Account ID e chiave API di Cloudflare nelle impostazioni.")
-            notes.isEmpty() -> summary = SummaryState.Done("Nessuna notifica nelle ultime 24 ore. Respira: è tutto tranquillo.", 0)
+            notes.isEmpty() -> summary = SummaryState.Done("Nessuna notifica nel pannello. Respira: è tutto tranquillo.", 0)
             else -> {
                 summary = SummaryState.Loading
                 viewModelScope.launch {

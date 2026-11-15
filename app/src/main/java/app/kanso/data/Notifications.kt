@@ -14,21 +14,28 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
-data class Note(val time: Long, val app: String, val title: String, val text: String, val pkg: String = "")
+/** [key]: la notifica di Android da cui viene; quando sparisce dal pannello sparisce anche dal riassunto. */
+data class Note(val time: Long, val app: String, val title: String, val text: String, val pkg: String = "", val key: String = "")
 
 /**
- * Tiene una copia locale delle notifiche delle ultime 24 ore, solo per il riassunto.
+ * Tiene una copia locale delle notifiche ancora nel pannello (al massimo 24 ore), solo per il riassunto.
  * Non le cancella, non le nasconde e non risponde: la gestione di Android resta intatta.
  */
 class NotificationCollector : NotificationListenerService() {
     override fun onListenerConnected() {
         Chrono.clear()
-        runCatching { activeNotifications }.getOrNull()?.forEach { Chrono.update(this, it) }
+        val active = runCatching { activeNotifications }.getOrNull() ?: return
+        active.forEach { Chrono.update(this, it) }
+        // Quelle tolte mentre Kanso non ascoltava escono dal riassunto.
+        NoteStore.keep(this, active.map { it.key }.toSet())
     }
 
     override fun onListenerDisconnected() = Chrono.clear()
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification) = Chrono.remove(sbn.key)
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        Chrono.remove(sbn.key)
+        NoteStore.remove(this, sbn.key)
+    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         Chrono.update(this, sbn)
@@ -40,7 +47,7 @@ class NotificationCollector : NotificationListenerService() {
         if (title.isBlank() && text.isBlank()) return
         val app = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
             .getOrDefault(sbn.packageName)
-        NoteStore.add(this, Note(sbn.postTime, app, title.take(120), text.take(400), sbn.packageName))
+        NoteStore.add(this, Note(sbn.postTime, app, title.take(120), text.take(400), sbn.packageName, sbn.key))
     }
 }
 
@@ -49,12 +56,25 @@ object NoteStore {
     private fun file(c: Context) = File(c.filesDir, "notes.json")
 
     @Synchronized
-    fun add(c: Context, note: Note) {
-        val list = (read(c) + note).takeLast(300)
-        file(c).writeText(JSONArray(list.map {
-            JSONObject().put("t", it.time).put("a", it.app).put("h", it.title).put("b", it.text).put("p", it.pkg)
-        }).toString())
+    fun add(c: Context, note: Note) = write(c, (read(c) + note).takeLast(300))
+
+    @Synchronized
+    fun remove(c: Context, key: String) {
+        val list = read(c)
+        if (list.any { it.key == key }) write(c, list.filter { it.key != key })
     }
+
+    /** Tiene solo le note delle notifiche [active]; quelle salvate senza chiave (versioni vecchie) escono. */
+    @Synchronized
+    fun keep(c: Context, active: Set<String>) {
+        val list = read(c)
+        val kept = list.filter { it.key in active }
+        if (kept.size != list.size) write(c, kept)
+    }
+
+    private fun write(c: Context, list: List<Note>) = file(c).writeText(JSONArray(list.map {
+        JSONObject().put("t", it.time).put("a", it.app).put("h", it.title).put("b", it.text).put("p", it.pkg).put("k", it.key)
+    }).toString())
 
     @Synchronized
     fun read(c: Context): List<Note> {
@@ -64,7 +84,7 @@ object NoteStore {
         return runCatching {
             val arr = JSONArray(f.readText())
             (0 until arr.length()).map { arr.getJSONObject(it) }
-                .map { Note(it.getLong("t"), it.getString("a"), it.getString("h"), it.getString("b"), it.optString("p")) }
+                .map { Note(it.getLong("t"), it.getString("a"), it.getString("h"), it.getString("b"), it.optString("p"), it.optString("k")) }
                 .filter { it.time >= since }
         }.getOrDefault(emptyList())
     }
@@ -94,7 +114,7 @@ object Summarizer {
 
     suspend fun summarize(account: String, token: String, notes: List<Note>): String {
         val digest = notes.joinToString("\n") { "[${it.app}] ${it.title}: ${it.text}".replace('\n', ' ') }
-        return run(account, token, SYSTEM, "Notifiche delle ultime 24 ore:\n$digest")
+        return run(account, token, SYSTEM, "Notifiche ancora da leggere:\n$digest")
     }
 
     /** [digest]: un evento per riga, già con giorno e orario leggibili. */

@@ -227,7 +227,7 @@ fun SummaryCard(vm: KansoViewModel) {
                     Eyebrow("Riassunto notifiche")
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        if (vm.noteCount == 1) "1 notifica nelle ultime 24 ore" else "${vm.noteCount} notifiche nelle ultime 24 ore",
+                        if (vm.noteCount == 1) "1 notifica nel pannello" else "${vm.noteCount} notifiche nel pannello",
                         style = MaterialTheme.typography.bodyMedium, color = K.Muted,
                     )
                 }
