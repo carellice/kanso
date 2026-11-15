@@ -29,6 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
@@ -143,3 +145,18 @@ fun AppLabel(text: String, modifier: Modifier = Modifier) =
         text, modifier, style = MaterialTheme.typography.labelMedium, color = K.Paper.copy(alpha = 0.82f),
         maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
     )
+
+/** Ricorda dove sta un'icona, così l'app che apre cresce proprio da lì. */
+class LaunchFrom(private val view: android.view.View) {
+    private var bounds = androidx.compose.ui.geometry.Rect.Zero
+    val modifier = Modifier.onGloballyPositioned { bounds = it.boundsInRoot() }
+    fun options(): android.os.Bundle? = if (bounds.isEmpty) null else android.app.ActivityOptions.makeScaleUpAnimation(
+        view, bounds.left.toInt(), bounds.top.toInt(), bounds.width.toInt(), bounds.height.toInt(),
+    ).toBundle()
+}
+
+@Composable
+fun rememberLaunchFrom(): LaunchFrom {
+    val view = androidx.compose.ui.platform.LocalView.current
+    return remember(view) { LaunchFrom(view) }
+}

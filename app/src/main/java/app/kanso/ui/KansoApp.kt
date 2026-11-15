@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,14 @@ fun KansoApp(vm: KansoViewModel) {
 
     LaunchedEffect(vm.homeSignal) { if (vm.homeSignal > 0) pager.animateScrollToPage(HOME) }
 
+    // Tornando da un'app la Home riaffiora: si riassesta da un poco più vicino e si schiarisce.
+    val arrival = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(vm.returnSignal) {
+        if (vm.returnSignal == 0) return@LaunchedEffect
+        arrival.snapTo(0f)
+        arrival.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 220f))
+    }
+
     // Un launcher non si chiude mai: Indietro chiude le sovrapposizioni o torna alla Home.
     BackHandler {
         when {
@@ -78,7 +87,11 @@ fun KansoApp(vm: KansoViewModel) {
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { scaleX = dim.coerceAtLeast(0.96f); scaleY = dim.coerceAtLeast(0.96f); alpha = dim }
+                .graphicsLayer {
+                    val back = lerp(1.08f, 1f, arrival.value)
+                    scaleX = dim.coerceAtLeast(0.96f) * back; scaleY = scaleX
+                    alpha = dim * lerp(0.3f, 1f, arrival.value).coerceIn(0f, 1f)
+                }
                 .blur(blur),
         ) {
             Glow(pager)

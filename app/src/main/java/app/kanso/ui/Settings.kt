@@ -91,7 +91,7 @@ fun SettingsSheet(vm: KansoViewModel) {
                     vm.start(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 }
                 Divider()
-                Row_("Lettura notifiche", "Solo per il riassunto su richiesta", done = vm.hasNotificationAccess) {
+                Row_("Lettura notifiche", "Per il riassunto e per timer e cronometro in Home", done = vm.hasNotificationAccess) {
                     vm.start(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
             }

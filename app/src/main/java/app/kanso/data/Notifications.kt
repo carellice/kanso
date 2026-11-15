@@ -21,7 +21,17 @@ data class Note(val time: Long, val app: String, val title: String, val text: St
  * Non le cancella, non le nasconde e non risponde: la gestione di Android resta intatta.
  */
 class NotificationCollector : NotificationListenerService() {
+    override fun onListenerConnected() {
+        Chrono.clear()
+        runCatching { activeNotifications }.getOrNull()?.forEach { Chrono.update(this, it) }
+    }
+
+    override fun onListenerDisconnected() = Chrono.clear()
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) = Chrono.remove(sbn.key)
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        Chrono.update(this, sbn)
         val n = sbn.notification
         if (sbn.isOngoing || sbn.packageName == packageName || n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
         val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()

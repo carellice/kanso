@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- La Home si allontana appena mentre l'app arriva. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:interpolator/fast_out_slow_in"
+    android:shareInterpolator="true">
+    <scale
+        android:duration="420"
+        android:fromXScale="1"
+        android:fromYScale="1"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:toXScale="1.06"
+        android:toYScale="1.06" />
+    <alpha
+        android:duration="420"
+        android:fromAlpha="1"
+        android:toAlpha="0" />
+</set>

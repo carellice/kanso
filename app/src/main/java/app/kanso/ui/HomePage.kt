@@ -83,6 +83,13 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.width
+import app.kanso.data.Chrono
+import app.kanso.data.ChronoInfo
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Timer
 
 @Composable
 fun HomePage(vm: KansoViewModel) {
@@ -90,35 +97,42 @@ fun HomePage(vm: KansoViewModel) {
     val pull = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val threshold = with(LocalDensity.current) { 72.dp.toPx() }
+    val threshold = with(LocalDensity.current) { 40.dp.toPx() }
+    val flingSpeed = with(LocalDensity.current) { 400.dp.toPx() }
+    val tracker = remember { VelocityTracker() }
     Column(
         Modifier
             .fillMaxSize()
-            .graphicsLayer {
-                translationY = pull.value
-                val p = (pull.value.absoluteValue / (threshold * 3)).coerceIn(0f, 1f)
-                alpha = 1f - p * 0.6f
-                scaleX = 1f - p * 0.05f; scaleY = scaleX
-            }
+            // Il gesto si legge prima dello spostamento: così il dito non "insegue" il contenuto che si muove.
             .pointerInput(vm.editing) {
                 if (vm.editing) return@pointerInput
                 detectVerticalDragGestures(
+                    onDragStart = { tracker.resetTracking() },
                     onVerticalDrag = { change, dy ->
                         change.consume()
+                        tracker.addPosition(change.uptimeMillis, change.position)
                         val before = pull.value
-                        val next = before + dy * 0.45f
+                        val next = before + dy * 0.55f
                         if ((before.absoluteValue < threshold) != (next.absoluteValue < threshold)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         scope.launch { pull.snapTo(next) }
                     },
                     onDragEnd = {
+                        // Basta superare la soglia oppure un colpo deciso nella stessa direzione.
+                        val v = tracker.calculateVelocity().y
                         when {
-                            pull.value < -threshold -> vm.searchOpen = true
-                            pull.value > threshold -> vm.pullDown()
+                            pull.value < -threshold || (v < -flingSpeed && pull.value < 0) -> vm.searchOpen = true
+                            pull.value > threshold || (v > flingSpeed && pull.value > 0) -> vm.pullDown()
                         }
                         scope.launch { pull.animateTo(0f, spring(0.75f, 260f)) }
                     },
                     onDragCancel = { scope.launch { pull.animateTo(0f, spring(0.75f, 260f)) } },
                 )
+            }
+            .graphicsLayer {
+                translationY = pull.value
+                val p = (pull.value.absoluteValue / (threshold * 3)).coerceIn(0f, 1f)
+                alpha = 1f - p * 0.6f
+                scaleX = 1f - p * 0.05f; scaleY = scaleX
             }
             .statusBarsPadding()
             .navigationBarsPadding()
@@ -128,12 +142,12 @@ fun HomePage(vm: KansoViewModel) {
             },
     ) {
         AnimatedContent(
-            if (vm.editing) TopBar.EDIT else if (vm.prefs.showClock) TopBar.CLOCK else TopBar.NONE,
+            if (vm.editing) TopBar.EDIT else if (vm.prefs.showClock || Chrono.active.isNotEmpty()) TopBar.CLOCK else TopBar.NONE,
             transitionSpec = { (fadeIn(tween(300)) + slideInVertically { -it / 2 }) togetherWith (fadeOut(tween(200)) + slideOutVertically { -it / 2 }) },
             label = "editBar",
             modifier = Modifier.padding(top = 20.dp).heightIn(min = 48.dp),
         ) { bar ->
-            if (bar == TopBar.CLOCK) Clock { vm.start(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }
+            if (bar == TopBar.CLOCK) Clock(vm)
             else if (bar == TopBar.EDIT) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.settingsOpen = true }
@@ -159,20 +173,62 @@ fun HomePage(vm: KansoViewModel) {
 
 private enum class TopBar { NONE, CLOCK, EDIT }
 
-/** Orologio facoltativo: ore e data, aggiornati allo scoccare di ogni minuto. */
+/** Orologio facoltativo: ore e data, aggiornati allo scoccare di ogni minuto. Accanto, timer e cronometri attivi. */
 @Composable
-private fun Clock(onClick: () -> Unit) {
-    val now by produceState(System.currentTimeMillis()) {
+private fun Clock(vm: KansoViewModel) {
+    val chronos = Chrono.active
+    val now by produceState(System.currentTimeMillis(), chronos.isEmpty()) {
         while (true) {
             value = System.currentTimeMillis()
-            delay(60_000 - value % 60_000)
+            delay(if (chronos.isEmpty()) 60_000 - value % 60_000 else 1_000 - value % 1_000)
         }
     }
-    val time = remember(now) { SimpleDateFormat("HH:mm", Locale.ITALIAN).format(Date(now)) }
-    val date = remember(now) { SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN).format(Date(now)) }
-    Column(Modifier.fillMaxWidth().padding(top = 24.dp).pressable(pressedScale = 0.97f, onClick = onClick)) {
-        Text(time, style = MaterialTheme.typography.displayLarge.copy(fontSize = 84.sp, lineHeight = 88.sp), color = K.Paper)
-        Eyebrow(date)
+    Row(Modifier.fillMaxWidth().padding(top = 24.dp), verticalAlignment = Alignment.Bottom) {
+        if (vm.prefs.showClock) {
+            val time = remember(now / 60_000) { SimpleDateFormat("HH:mm", Locale.ITALIAN).format(Date(now)) }
+            val date = remember(now / 60_000) { SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN).format(Date(now)) }
+            Column(Modifier.weight(1f).pressable(pressedScale = 0.97f) { vm.start(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }) {
+                Text(time, style = MaterialTheme.typography.displayLarge.copy(fontSize = 84.sp, lineHeight = 88.sp), color = K.Paper)
+                Eyebrow(date)
+            }
+        }
+        val chips = @Composable { chronos.take(2).forEach { ChronoChip(it, now) { vm.launch(it.pkg) } } }
+        // Accanto all'orologio in colonna; da soli, in riga.
+        if (vm.prefs.showClock) Column(
+            Modifier.padding(bottom = 6.dp).animateContentSize(Motion.soft()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.End,
+        ) { chips() }
+        else Row(Modifier.animateContentSize(Motion.soft()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
+    }
+}
+
+@Composable
+private fun ChronoChip(c: ChronoInfo, now: Long, onClick: () -> Unit) {
+    val ms = if (c.countDown) c.base - now else now - c.base
+    // Il timer arrotonda per eccesso, come l'Orologio; scaduto, conta in negativo.
+    val s = if (c.countDown && ms > 0) (ms + 999) / 1000 else ms.absoluteValue / 1000
+    val text = c.frozen ?: buildString {
+        if (ms < 0 && s > 0) append('-')
+        if (s >= 3600) append("${s / 3600}:${"%02d".format(s / 60 % 60)}") else append(s / 60)
+        append(":${"%02d".format(s % 60)}")
+    }
+    Row(
+        Modifier
+            .clip(CircleShape)
+            .background(K.Surface)
+            .border(1.dp, K.Line, CircleShape)
+            .pressable(pressedScale = 0.95f, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (c.countDown) Icons.Rounded.HourglassTop else Icons.Rounded.Timer,
+            if (c.countDown) "Timer" else "Cronometro", Modifier.size(18.dp),
+            tint = if (c.frozen != null) K.Muted else K.Shu,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.titleMedium, color = if (c.frozen != null) K.Muted else K.Paper)
     }
 }
 
@@ -228,6 +284,7 @@ private fun TileGrid(vm: KansoViewModel) {
     ) {
         itemsIndexed(order, key = { _, pkg -> pkg }) { index, pkg ->
             val app = vm.byPkg[pkg]
+            val from = rememberLaunchFrom()
             val isDragged = dragging == pkg
             val lift by animateFloatAsState(if (isDragged) 1.08f else 1f, Motion.press(), label = "lift")
             Box(
@@ -235,11 +292,12 @@ private fun TileGrid(vm: KansoViewModel) {
                     .then(if (isDragged) Modifier else Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null))
                     .zIndex(if (isDragged) 1f else 0f)
                     .offset { if (isDragged) IntOffset(dragOffset.x.toInt(), dragOffset.y.toInt()) else IntOffset.Zero }
-                    .graphicsLayer { scaleX = lift; scaleY = lift },
+                    .graphicsLayer { scaleX = lift; scaleY = lift }
+                    .then(from.modifier),
             ) {
                 Tile(
                     vm, pkg, app?.label ?: "", index, editing = vm.editing,
-                    onClick = { if (!vm.editing) app?.let { vm.launch(it.pkg) } },
+                    onClick = { if (!vm.editing) app?.let { vm.launch(it.pkg, from.options()) } },
                     onLongClick = { if (!vm.editing) vm.guarded { vm.editing = true } },
                     onRemove = { vm.removeTile(pkg) },
                 )

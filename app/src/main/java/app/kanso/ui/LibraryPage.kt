@@ -129,8 +129,9 @@ private fun AppRows(vm: KansoViewModel, apps: List<AppEntry>, onLongPress: (AppE
         apps.chunked(4).forEach { row ->
             Row(Modifier.fillMaxWidth()) {
                 row.forEach { app ->
+                    val from = rememberLaunchFrom()
                     Column(
-                        Modifier.weight(1f).pressable(onLongClick = { onLongPress(app) }) { vm.open(app) },
+                        Modifier.weight(1f).then(from.modifier).pressable(onLongClick = { onLongPress(app) }) { vm.open(app, from.options()) },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         AppIcon(vm.appsRepo, app.pkg, 48.dp, monochrome = vm.prefs.monochrome)

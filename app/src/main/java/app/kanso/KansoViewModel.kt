@@ -1,6 +1,8 @@
 package app.kanso
 
+import android.app.ActivityOptions
 import android.app.Application
+import android.os.Bundle
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -66,6 +68,9 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     var unlock by mutableStateOf<(() -> Unit)?>(null); private set
     /** Aumenta a ogni pressione del tasto Home, per tornare alla pagina centrale. */
     var homeSignal by mutableIntStateOf(0); private set
+    /** Aumenta quando si torna in Kanso da un'app aperta da qui, per l'animazione di ritorno. */
+    var returnSignal by mutableIntStateOf(0); private set
+    private var away = false
 
     val tiles: List<String> get() = (prefs.tiles ?: defaultTiles).filter { pkg -> apps.isEmpty() || apps.any { it.pkg == pkg } }
     val byPkg: Map<String, AppEntry> get() = apps.associateBy { it.pkg }
@@ -118,8 +123,8 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Le app della Home si aprono subito; le altre passano dall'attrito consapevole. */
-    fun open(app: AppEntry) {
-        if (prefs.friction && app.pkg !in tiles) friction = app else launch(app.pkg)
+    fun open(app: AppEntry, options: Bundle? = null) {
+        if (prefs.friction && app.pkg !in tiles) friction = app else launch(app.pkg, options)
     }
 
     fun isDistracting(app: AppEntry) = app.category in DistractingCategories
@@ -127,16 +132,21 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     fun confirmFriction() { friction?.let { launch(it.pkg) }; friction = null }
     fun cancelFriction() { friction = null }
 
-    fun launch(pkg: String) {
+    /** [options]: animazione che parte dall'icona; senza, l'app cresce dal centro. */
+    fun launch(pkg: String, options: Bundle? = null) {
         val intent = appsRepo.launchIntent(pkg) ?: return toast("App non disponibile")
-        start(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
+        start(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED), options)
     }
+
+    fun resumed() { if (away) { away = false; returnSignal++ } }
 
     fun view(uri: Uri) = start(Intent(Intent.ACTION_VIEW, uri))
 
-    fun start(intent: Intent) {
+    fun start(intent: Intent, options: Bundle? = null) {
         try {
-            ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            val anim = options ?: ActivityOptions.makeCustomAnimation(ctx, R.anim.app_open, R.anim.home_exit).toBundle()
+            ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), anim)
+            away = true
             searchOpen = false
         } catch (_: ActivityNotFoundException) {
             toast("Nessuna app può aprirlo")

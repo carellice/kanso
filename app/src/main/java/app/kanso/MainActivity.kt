@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.refresh()
+        vm.resumed()
     }
 
     // Il tasto Home con il launcher già aperto: torna alla pagina centrale e chiude tutto.
