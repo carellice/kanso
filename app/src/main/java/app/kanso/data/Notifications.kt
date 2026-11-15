@@ -14,7 +14,7 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
-data class Note(val time: Long, val app: String, val title: String, val text: String)
+data class Note(val time: Long, val app: String, val title: String, val text: String, val pkg: String = "")
 
 /**
  * Tiene una copia locale delle notifiche delle ultime 24 ore, solo per il riassunto.
@@ -40,7 +40,7 @@ class NotificationCollector : NotificationListenerService() {
         if (title.isBlank() && text.isBlank()) return
         val app = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
             .getOrDefault(sbn.packageName)
-        NoteStore.add(this, Note(sbn.postTime, app, title.take(120), text.take(400)))
+        NoteStore.add(this, Note(sbn.postTime, app, title.take(120), text.take(400), sbn.packageName))
     }
 }
 
@@ -52,7 +52,7 @@ object NoteStore {
     fun add(c: Context, note: Note) {
         val list = (read(c) + note).takeLast(300)
         file(c).writeText(JSONArray(list.map {
-            JSONObject().put("t", it.time).put("a", it.app).put("h", it.title).put("b", it.text)
+            JSONObject().put("t", it.time).put("a", it.app).put("h", it.title).put("b", it.text).put("p", it.pkg)
         }).toString())
     }
 
@@ -64,7 +64,7 @@ object NoteStore {
         return runCatching {
             val arr = JSONArray(f.readText())
             (0 until arr.length()).map { arr.getJSONObject(it) }
-                .map { Note(it.getLong("t"), it.getString("a"), it.getString("h"), it.getString("b")) }
+                .map { Note(it.getLong("t"), it.getString("a"), it.getString("h"), it.getString("b"), it.optString("p")) }
                 .filter { it.time >= since }
         }.getOrDefault(emptyList())
     }
@@ -83,7 +83,8 @@ object Summarizer {
     private const val SYSTEM = "Sei l'assistente di un launcher dedicato al benessere digitale. Riassumi in italiano " +
         "le notifiche ricevute, con tono calmo e sintetico: raggruppa per persona o app, evidenzia solo ciò che " +
         "richiede davvero attenzione e ignora pubblicità e promozioni. Al massimo 6 punti brevi, testo semplice " +
-        "senza markdown, ogni punto su una riga che inizia con il carattere •."
+        "senza markdown, ogni punto su una riga che inizia con il nome esatto dell'app tra parentesi quadre, " +
+        "come appare nelle notifiche, ad esempio: [WhatsApp] Marco chiede se ci sei stasera."
 
     private const val AGENDA = "Sei l'assistente di un launcher dedicato al benessere digitale. Riassumi in italiano " +
         "gli impegni dei prossimi giorni, con tono calmo e sintetico: cosa c'è oggi, cosa arriva dopo, eventuali giornate " +

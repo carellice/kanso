@@ -83,6 +83,8 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.width
 import app.kanso.data.Chrono
@@ -246,14 +248,24 @@ private fun TileGrid(vm: KansoViewModel) {
         pos.x >= it.offset.x && pos.x <= it.offset.x + it.size.width && pos.y >= it.offset.y && pos.y <= it.offset.y + it.size.height
     }?.takeIf { it.key is String && it.key != ADD_KEY }
 
+    // Se sopra c'è poco spazio (es. un riassunto lungo) i riquadri si rimpiccioliscono per stare tutti sullo schermo.
+    BoxWithConstraints(Modifier.fillMaxSize().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+    val cols = vm.prefs.columns
+    val gap = 14.dp
+    val rows = (order.size + (if (vm.editing) 1 else 0) + cols - 1) / cols
+    val natural = (maxWidth - gap * (cols - 1)) / cols
+    val fit = if (rows == 0) natural else (maxHeight - gap * (rows - 1)) / rows
+    val tile = kotlin.math.floor(minOf(natural, fit).value - 1).dp.coerceAtLeast(40.dp)
+    val iconSize = minOf(if (cols >= 4) 34.dp else 46.dp, tile * 0.45f)
+    val showLabel = tile >= 84.dp
     LazyVerticalGrid(
-        columns = GridCells.Fixed(vm.prefs.columns),
+        columns = GridCells.Fixed(cols),
         state = state,
         userScrollEnabled = false,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
         modifier = Modifier
-            .fillMaxWidth()
+            .width(tile * cols + gap * (cols - 1))
             .pointerInput(vm.editing) {
                 if (!vm.editing) return@pointerInput
                 detectDragGestures(
@@ -296,7 +308,7 @@ private fun TileGrid(vm: KansoViewModel) {
                     .then(from.modifier),
             ) {
                 Tile(
-                    vm, pkg, app?.label ?: "", index, editing = vm.editing,
+                    vm, pkg, app?.label ?: "", index, editing = vm.editing, iconSize = iconSize, showLabel = showLabel,
                     onClick = { if (!vm.editing) app?.let { vm.launch(it.pkg, from.options()) } },
                     onLongClick = { if (!vm.editing) vm.guarded { vm.editing = true } },
                     onRemove = { vm.removeTile(pkg) },
@@ -307,13 +319,14 @@ private fun TileGrid(vm: KansoViewModel) {
             Box(Modifier.animateItem()) { AddTile { vm.pickerOpen = true } }
         }
     }
+    }
 }
 
 private const val ADD_KEY = "__add__"
 
 @Composable
 private fun Tile(
-    vm: KansoViewModel, pkg: String, label: String, index: Int, editing: Boolean,
+    vm: KansoViewModel, pkg: String, label: String, index: Int, editing: Boolean, iconSize: Dp, showLabel: Boolean,
     onClick: () -> Unit, onLongClick: () -> Unit, onRemove: () -> Unit,
 ) {
     // Entrata a cascata: ogni riquadro sale e appare con un piccolo ritardo.
@@ -346,9 +359,11 @@ private fun Tile(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            AppIcon(vm.appsRepo, pkg, if (vm.prefs.columns >= 4) 34.dp else 46.dp)
-            Spacer(Modifier.height(10.dp))
-            AppLabel(label)
+            AppIcon(vm.appsRepo, pkg, iconSize)
+            if (showLabel) {
+                Spacer(Modifier.height(10.dp))
+                AppLabel(label)
+            }
         }
         if (editing) {
             Box(

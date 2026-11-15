@@ -242,7 +242,7 @@ fun SummaryCard(vm: KansoViewModel) {
                     SummaryState.Idle -> PillButton("Riassumi con l'AI", icon = Icons.Rounded.AutoAwesome) { vm.summarize() }
                     SummaryState.Loading -> BreathingDots()
                     is SummaryState.Done -> Column {
-                        RevealLines(state.text)
+                        RevealLines(vm, state.text, state.apps)
                         Spacer(Modifier.height(18.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             PillButton("Aggiorna", filled = false) { vm.summarize() }
@@ -265,16 +265,34 @@ fun SummaryCard(vm: KansoViewModel) {
 
 /** Le righe del riassunto compaiono una dopo l'altra, salendo appena. */
 @Composable
-private fun RevealLines(text: String) {
+private fun RevealLines(vm: KansoViewModel, text: String, apps: Map<String, String>) {
     val lines = remember(text) { text.lines().map { it.trim() }.filter { it.isNotEmpty() } }
+    // Ogni riga inizia con «[App]»: al posto del nome mostro l'icona dell'app.
+    val tagged = Regex("""^•?\s*\[([^\]]+)]\s*(.*)$""")
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         lines.forEachIndexed { i, line ->
             val a = remember(text) { Animatable(0f) }
             LaunchedEffect(text) { delay(120L * i); a.animateTo(1f, tween(600, easing = Motion.Calm)) }
-            Text(
-                line, style = MaterialTheme.typography.bodyLarge, color = K.Paper,
-                modifier = Modifier.graphicsLayer { alpha = a.value; translationY = (1 - a.value) * 14.dp.toPx() },
-            )
+            val m = tagged.find(line)
+            val label = m?.groupValues?.get(1)?.trim()
+            val pkg = label?.let { l -> apps[l.lowercase()] ?: vm.apps.firstOrNull { it.label.equals(l, ignoreCase = true) }?.pkg }
+            Row(
+                Modifier.graphicsLayer { alpha = a.value; translationY = (1 - a.value) * 14.dp.toPx() },
+                verticalAlignment = Alignment.Top,
+            ) {
+                if (pkg != null) {
+                    AppIcon(vm.appsRepo, pkg, 24.dp, modifier = Modifier.padding(top = 1.dp))
+                    Spacer(Modifier.width(12.dp))
+                }
+                Text(
+                    when {
+                        m == null -> line
+                        pkg != null -> m.groupValues[2]
+                        else -> "• $label · ${m.groupValues[2]}"
+                    },
+                    style = MaterialTheme.typography.bodyLarge, color = K.Paper,
+                )
+            }
         }
     }
 }

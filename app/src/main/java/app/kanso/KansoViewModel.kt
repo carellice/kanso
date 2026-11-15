@@ -32,7 +32,8 @@ import java.util.Locale
 sealed interface SummaryState {
     data object Idle : SummaryState
     data object Loading : SummaryState
-    data class Done(val text: String, val count: Int) : SummaryState
+    /** [apps]: nome dell'app in minuscolo -> pacchetto, per mostrare le icone accanto alle righe. */
+    data class Done(val text: String, val count: Int, val apps: Map<String, String> = emptyMap()) : SummaryState
     data class Failed(val message: String) : SummaryState
 }
 
@@ -212,7 +213,7 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
                 summary = SummaryState.Loading
                 viewModelScope.launch {
                     summary = runCatching { Summarizer.summarize(prefs.cfAccount, prefs.cfToken, notes) }
-                        .fold({ SummaryState.Done(it, notes.size) }, { SummaryState.Failed(it.message ?: "Connessione non riuscita.") })
+                        .fold({ SummaryState.Done(it, notes.size, notes.filter { n -> n.pkg.isNotEmpty() }.associate { n -> n.app.lowercase() to n.pkg }) }, { SummaryState.Failed(it.message ?: "Connessione non riuscita.") })
                 }
             }
         }
