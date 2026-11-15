@@ -48,6 +48,11 @@ sealed interface SummaryState {
 
 const val AGENDA_DAYS = 30
 private const val AGENDA_SUMMARY_EVERY = 5 * 3_600_000L
+private val Tag = Regex("""^[•\-*\s]*\[([^\]]+)]""")
+private val EmptyLine = Regex(
+    """(non ci sono|non c'è|nessuna?|nessun'|niente|nient'|nulla)\s*(altr[aeio]|nuov[aeio]|di)?\s*(notifich|messagg|novit|important|altro|da (leggere|segnalare))""",
+    RegexOption.IGNORE_CASE,
+)
 
 class KansoViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx get() = getApplication<Application>()
@@ -313,12 +318,23 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
             else -> {
                 summary = SummaryState.Loading
                 viewModelScope.launch {
+                    val apps = notes.associate { n -> n.app.lowercase() to n.pkg }
                     summary = runCatching { Summarizer.summarize(prefs.cfAccount, prefs.cfToken, notes) }
-                        .fold({ SummaryState.Done(it, notes.size, notes.filter { n -> n.pkg.isNotEmpty() }.associate { n -> n.app.lowercase() to n.pkg }) }, { SummaryState.Failed(it.message ?: "Connessione non riuscita.") })
+                        .map { onlyRealApps(it, apps.keys) }
+                        .fold({ SummaryState.Done(it, notes.size, apps.filterValues { p -> p.isNotEmpty() }) }, { SummaryState.Failed(it.message ?: "Connessione non riuscita.") })
                 }
             }
         }
     }
+
+    /**
+     * Il modello a volte inventa app (Instagram senza Instagram) o scrive «nessun'altra notifica»: restano solo le righe
+     * che iniziano con un'app presente davvero tra le notifiche del pannello e che dicono qualcosa.
+     */
+    private fun onlyRealApps(text: String, apps: Set<String>): String = text.lines().map { it.trim() }.filter { line ->
+        val app = Tag.find(line)?.groupValues?.get(1)?.trim()?.lowercase() ?: return@filter false
+        apps.any { it == app } && !EmptyLine.containsMatchIn(line)
+    }.joinToString("\n")
 
     fun dismissSummary() { summary = SummaryState.Idle }
 

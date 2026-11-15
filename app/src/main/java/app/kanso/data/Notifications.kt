@@ -152,7 +152,9 @@ object Summarizer {
         "vuole. Metti prima ciò che richiede una risposta o un'azione, riduci a pochissime parole pubblicità e " +
         "promozioni. Al massimo 8 righe, testo semplice senza markdown, ogni riga inizia con il nome esatto dell'app " +
         "tra parentesi quadre, ad esempio: [WhatsApp] Calcetto: Marco e Luca chiedono se ci sei giovedì alle 20. " +
-        "Non scrivere mai righe per dire che non ci sono notifiche o che non c'è nulla da leggere."
+        "Scrivi solo delle app e delle notifiche presenti nell'elenco, mai di altre app. " +
+        "Non scrivere mai righe per dire che non ci sono notifiche, che non ci sono altre notifiche importanti " +
+        "o che non c'è nulla da leggere: se un'app non ha niente da dire, non scrivere nessuna riga per lei."
 
     private const val AGENDA = "Sei l'assistente di un launcher. Riassumi in italiano gli impegni giorno per giorno, " +
         "sempre con lo stesso livello di dettaglio. Per OGNI giorno che ha impegni scrivi una sola riga, e nessuna riga " +
@@ -171,7 +173,12 @@ object Summarizer {
                 "- ${title.ifBlank { "(senza titolo)" }}: " + msgs.reversed().joinToString(" / ") { it.text }.replace('\n', ' ').take(900)
             }
         }
-        return run(account, token, SYSTEM, "Notifiche ancora da leggere:\n$digest")
+        val names = notes.map { it.app }.distinct().joinToString(", ")
+        return run(
+            account, token, SYSTEM,
+            "App con notifiche nel pannello (scrivi solo di queste): $names\n\nNotifiche ancora da leggere:\n$digest",
+            temperature = 0.0,
+        )
     }
 
     /** [digest]: un evento per riga, già con giorno e orario leggibili. */
