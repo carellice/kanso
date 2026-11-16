@@ -256,8 +256,9 @@ private fun TileGrid(vm: KansoViewModel) {
     }
     val cols = (2..5).maxBy { tileFor(it) } // a parità vince la prima: meno colonne
     val tile = kotlin.math.floor(tileFor(cols).value - 1).dp.coerceAtLeast(56.dp)
-    val iconSize = minOf(52.dp, tile * 0.45f)
     val showLabel = tile >= 84.dp
+    // Senza nome il riquadro è piccolo: l'icona lo riempie (meno i 10dp di margine per lato del Tile).
+    val iconSize = if (showLabel) minOf(52.dp, tile * 0.45f) else tile - 20.dp
     LazyVerticalGrid(
         columns = GridCells.Fixed(cols),
         state = state,
