@@ -20,7 +20,6 @@ class Prefs(context: Context) {
     /** null finché l'utente non ha mai salvato una Home: allora si usano le app essenziali di sistema. */
     var tiles by mutableStateOf(sp.getString("tiles", null)?.split(',')?.filter { it.isNotBlank() })
         private set
-    var columns by mutableStateOf(sp.getInt("columns", 3)); private set
     var friction by mutableStateOf(sp.getBoolean("friction", true)); private set
     var frictionSeconds by mutableStateOf(sp.getInt("frictionSeconds", 5)); private set
     var monochrome by mutableStateOf(sp.getBoolean("monochrome", true)); private set
@@ -43,7 +42,6 @@ class Prefs(context: Context) {
         categories = categories + (pkg to category)
         sp.edit().putString("categories", categories.entries.joinToString(",") { "${it.key}=${it.value.name}" }).apply()
     }
-    fun saveColumns(v: Int) { columns = v; sp.edit().putInt("columns", v).apply() }
     fun saveFriction(v: Boolean) { friction = v; sp.edit().putBoolean("friction", v).apply() }
     fun saveFrictionSeconds(v: Int) { frictionSeconds = v; sp.edit().putInt("frictionSeconds", v).apply() }
     fun saveMonochrome(v: Boolean) { monochrome = v; sp.edit().putBoolean("monochrome", v).apply() }

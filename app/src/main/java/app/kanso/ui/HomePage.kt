@@ -244,15 +244,19 @@ private fun TileGrid(vm: KansoViewModel) {
         pos.x >= it.offset.x && pos.x <= it.offset.x + it.size.width && pos.y >= it.offset.y && pos.y <= it.offset.y + it.size.height
     }?.takeIf { it.key is String && it.key != ADD_KEY }
 
-    // Se sopra c'è poco spazio (es. un riassunto lungo) i riquadri si rimpiccioliscono per stare tutti sullo schermo.
+    // Colonne e grandezza si adattano allo spazio: vince la griglia (da 2 a 5 colonne) coi riquadri più grandi che ci stanno tutti.
     BoxWithConstraints(Modifier.fillMaxSize().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-    val cols = vm.prefs.columns
     val gap = 14.dp
-    val rows = (order.size + (if (vm.editing) 1 else 0) + cols - 1) / cols
-    val natural = (maxWidth - gap * (cols - 1)) / cols
-    val fit = if (rows == 0) natural else (maxHeight - gap * (rows - 1)) / rows
-    val tile = kotlin.math.floor(minOf(natural, fit).value - 1).dp.coerceAtLeast(40.dp)
-    val iconSize = minOf(if (cols >= 4) 34.dp else 46.dp, tile * 0.45f)
+    val count = order.size + (if (vm.editing) 1 else 0)
+    fun tileFor(c: Int): Dp {
+        val rows = (count + c - 1) / c
+        val natural = (maxWidth - gap * (c - 1)) / c
+        val fit = if (rows == 0) natural else (maxHeight - gap * (rows - 1)) / rows
+        return minOf(natural, fit)
+    }
+    val cols = (2..5).maxBy { tileFor(it) } // a parità vince la prima: meno colonne
+    val tile = kotlin.math.floor(tileFor(cols).value - 1).dp.coerceAtLeast(56.dp)
+    val iconSize = minOf(52.dp, tile * 0.45f)
     val showLabel = tile >= 84.dp
     LazyVerticalGrid(
         columns = GridCells.Fixed(cols),

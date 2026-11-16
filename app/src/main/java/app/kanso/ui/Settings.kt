@@ -91,9 +91,6 @@ fun SettingsSheet(vm: KansoViewModel) {
             }
 
             Section("Home") {
-                Label("Colonne della griglia")
-                Segmented(listOf("2", "3", "4"), (p.columns - 2).coerceIn(0, 2)) { p.saveColumns(it + 2) }
-                Spacer(Modifier.height(6.dp))
                 Row_("Modifica riquadri", "Aggiungi, togli e riordina le app della Home") {
                     vm.settingsOpen = false; vm.editing = true
                 }
