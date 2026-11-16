@@ -257,9 +257,9 @@ private fun TileGrid(vm: KansoViewModel) {
     }
     val cols = (2..5).maxBy { tileFor(it) } // a parità vince la prima: meno colonne
     val tile = kotlin.math.floor(tileFor(cols).value - 1).dp.coerceAtLeast(56.dp)
-    val showLabel = tile >= 84.dp
-    // Senza nome il riquadro è piccolo: l'icona lo riempie (meno i 10dp di margine per lato del Tile).
-    val iconSize = if (showLabel) minOf(52.dp, tile * 0.45f) else tile - 20.dp
+    // Il nome si vede sempre; nei riquadri piccoli margini e spazi si stringono per farci stare icona e nome.
+    val compact = tile < 84.dp
+    val iconSize = minOf(52.dp, tile * if (compact) 0.4f else 0.45f)
     LazyVerticalGrid(
         columns = GridCells.Fixed(cols),
         state = state,
@@ -310,7 +310,7 @@ private fun TileGrid(vm: KansoViewModel) {
                     .then(from.modifier),
             ) {
                 Tile(
-                    vm, pkg, app?.label ?: "", index, editing = vm.editing, iconSize = iconSize, showLabel = showLabel,
+                    vm, pkg, app?.label ?: "", index, editing = vm.editing, iconSize = iconSize, compact = compact,
                     onClick = { if (!vm.editing) app?.let { vm.launch(it.pkg, from.options()) } },
                     onLongClick = { if (!vm.editing) vm.guarded { vm.editing = true } },
                     onRemove = { vm.removeTile(pkg) },
@@ -328,7 +328,7 @@ private const val ADD_KEY = "__add__"
 
 @Composable
 private fun Tile(
-    vm: KansoViewModel, pkg: String, label: String, index: Int, editing: Boolean, iconSize: Dp, showLabel: Boolean,
+    vm: KansoViewModel, pkg: String, label: String, index: Int, editing: Boolean, iconSize: Dp, compact: Boolean,
     onClick: () -> Unit, onLongClick: () -> Unit, onRemove: () -> Unit,
 ) {
     // Entrata a cascata: ogni riquadro sale e appare con un piccolo ritardo.
@@ -343,7 +343,7 @@ private fun Tile(
 
     // Metro: live tile. Ogni tanto il riquadro si capovolge, mostra il nome in grande e poi torna com'era.
     val flip = remember { Animatable(0f) }
-    val live = K.metro && showLabel && !editing
+    val live = K.metro && !compact && !editing
     LaunchedEffect(live) {
         flip.snapTo(0f)
         if (!live) return@LaunchedEffect
@@ -373,16 +373,16 @@ private fun Tile(
                 .fillMaxSize()
                 .skin(shape, K.Shu)
                 .pressable(onLongClick = onLongClick, onClick = onClick)
-                .padding(if (showLabel) 10.dp else 6.dp),
+                .padding(if (compact) 6.dp else 10.dp),
         ) {
             val back = flip.value in 90f..270f
             if (back) Text(
                 label.lowercase(), style = MaterialTheme.typography.titleLarge, color = K.Paper, maxLines = 3,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).graphicsLayer { rotationX = 180f },
             ) else {
-                AppIcon(vm.appsRepo, pkg, iconSize, modifier = Modifier.align(Alignment.Center))
-                if (showLabel) Text(
-                    label, style = MaterialTheme.typography.labelMedium, color = K.Paper, maxLines = 1,
+                AppIcon(vm.appsRepo, pkg, iconSize, modifier = Modifier.align(if (compact) Alignment.TopCenter else Alignment.Center))
+                Text(
+                    label, style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium, color = K.Paper, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart),
                 )
             }
@@ -391,15 +391,13 @@ private fun Tile(
                 .fillMaxSize()
                 .skin(shape)
                 .pressable(onLongClick = onLongClick, onClick = onClick)
-                .padding(10.dp),
+                .padding(if (compact) 6.dp else 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             AppIcon(vm.appsRepo, pkg, iconSize)
-            if (showLabel) {
-                Spacer(Modifier.height(10.dp))
-                AppLabel(label)
-            }
+            Spacer(Modifier.height(if (compact) 4.dp else 10.dp))
+            AppLabel(label, compact = compact)
         }
         if (editing) {
             Box(

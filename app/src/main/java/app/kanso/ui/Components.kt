@@ -194,10 +194,11 @@ fun IconCircle(icon: ImageVector, description: String, modifier: Modifier = Modi
 }
 
 @Composable
-fun AppLabel(text: String, modifier: Modifier = Modifier) =
+fun AppLabel(text: String, modifier: Modifier = Modifier, compact: Boolean = false) =
     Text(
         // Nothing: i nomi delle app come etichette di uno strumento, monospazio maiuscolo.
-        if (K.nothing) text.uppercase() else text, modifier, style = MaterialTheme.typography.labelMedium, color = K.Paper.copy(alpha = 0.82f),
+        if (K.nothing) text.uppercase() else text, modifier,
+        style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium, color = K.Paper.copy(alpha = 0.82f),
         maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
     )
 
