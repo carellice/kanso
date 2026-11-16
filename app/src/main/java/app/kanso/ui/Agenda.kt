@@ -180,38 +180,42 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
             }
         }
     }
-    NavigateButton(vm)
+    NavigateButtons(vm)
     }
 }
 
-/** Da 2 ore prima di un impegno con un luogo (e finché è in corso): un tocco apre la navigazione fin lì. */
+/** Da 2 ore prima di ogni impegno con un luogo (e finché è in corso): un tocco mostra il percorso fin lì. */
 @Composable
-private fun NavigateButton(vm: KansoViewModel) {
+private fun NavigateButtons(vm: KansoViewModel) {
     val now by produceState(System.currentTimeMillis()) { while (true) { delay(60_000); value = System.currentTimeMillis() } }
-    val next = remember(vm.agenda, now / 60_000) {
-        vm.agenda.firstOrNull { !it.allDay && it.location.isNotBlank() && now < it.end && it.begin - now <= 2 * 3_600_000L }
+    val near = remember(vm.agenda, now / 60_000) {
+        vm.agenda.filter { !it.allDay && it.location.isNotBlank() && now < it.end && it.begin - now <= 2 * 3_600_000L }
     }
     AnimatedVisibility(
-        next != null,
+        near.isNotEmpty(),
         enter = fadeIn(tween(300)) + expandVertically(Motion.soft()),
         exit = fadeOut(tween(150)) + shrinkVertically(Motion.soft()),
     ) {
-        val e = next ?: return@AnimatedVisibility
-        val shape = RoundedCornerShape(20.dp)
-        Row(
-            Modifier.padding(top = 10.dp).fillMaxWidth().clip(shape).background(K.Shu.copy(alpha = 0.14f))
-                .border(1.dp, K.Shu.copy(alpha = 0.35f), shape)
-                .pressable(pressedScale = 0.98f) { vm.navigate(e.location) }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Directions, null, Modifier.size(22.dp), tint = K.Shu)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Naviga verso ${e.location}", style = MaterialTheme.typography.titleSmall, color = K.Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val at = if (e.begin <= now) "in corso" else "alle ${timeFormat.format(Date(e.begin))}"
-                Text("${e.title} · $at", style = MaterialTheme.typography.labelMedium, color = K.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+        Column(Modifier.animateContentSize(Motion.soft())) { near.forEach { NavigateButton(vm, it, now) } }
+    }
+}
+
+@Composable
+private fun NavigateButton(vm: KansoViewModel, e: AgendaEvent, now: Long) {
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        Modifier.padding(top = 10.dp).fillMaxWidth().clip(shape).background(K.Shu.copy(alpha = 0.14f))
+            .border(1.dp, K.Shu.copy(alpha = 0.35f), shape)
+            .pressable(pressedScale = 0.98f) { vm.navigate(e.location) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Directions, null, Modifier.size(22.dp), tint = K.Shu)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(e.title, style = MaterialTheme.typography.titleSmall, color = K.Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val at = if (e.begin <= now) "in corso" else "alle ${timeFormat.format(Date(e.begin))}"
+            Text("${e.location} · $at", style = MaterialTheme.typography.labelMedium, color = K.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

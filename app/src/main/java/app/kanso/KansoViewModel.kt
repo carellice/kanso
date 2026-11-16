@@ -200,10 +200,12 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         agendaSummarizing = false
     }
 
-    /** Apre la navigazione verso il luogo di un impegno: Google Maps se c'è, altrimenti l'app di mappe. */
+    /** Mostra il percorso verso il luogo di un impegno (si avvia a mano): Google Maps se c'è, altrimenti l'app di mappe. */
     fun navigate(place: String) {
-        val nav = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=" + Uri.encode(place)))
-        if (nav.resolveActivity(ctx.packageManager) != null) start(nav) else view(Uri.parse("geo:0,0?q=" + Uri.encode(place)))
+        // Senza dir_action=navigate Maps si ferma all'anteprima del percorso, col tasto «Avvia».
+        val route = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=" + Uri.encode(place)))
+            .setPackage("com.google.android.apps.maps")
+        if (route.resolveActivity(ctx.packageManager) != null) start(route) else view(Uri.parse("geo:0,0?q=" + Uri.encode(place)))
     }
 
     fun onHomePressed() {
