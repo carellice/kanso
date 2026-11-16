@@ -155,7 +155,9 @@ fun SearchOverlay(vm: KansoViewModel) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp)) {
             if (q.isEmpty()) item(key = "hint") { Hint(Modifier.animateItem()) }
             items(results, key = { it.key }) { r ->
+                // Il primo risultato è quello che apre Invio: lo si evidenzia.
                 val m = Modifier.animateItem(fadeInSpec = tween(220), placementSpec = Motion.soft(), fadeOutSpec = tween(120))
+                    .then(if (r == results.first()) Modifier.background(K.SurfaceHigh, RoundedCornerShape(20.dp)) else Modifier)
                 when (r) {
                     is Result.App -> AppRow(vm, r.app, m)
                     is Result.Person -> ResultRow(Icons.Rounded.Person, r.contact.name, r.contact.number, m,
