@@ -104,6 +104,9 @@ fun HomePage(vm: KansoViewModel) {
     val threshold = with(LocalDensity.current) { 40.dp.toPx() }
     val flingSpeed = with(LocalDensity.current) { 400.dp.toPx() }
     val tracker = remember { VelocityTracker() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val hasTorch = remember { torchCamera(context) != null }
+    val toggles = vm.prefs.showTorch && hasTorch
     Column(
         Modifier
             .fillMaxSize()
@@ -146,12 +149,12 @@ fun HomePage(vm: KansoViewModel) {
             },
     ) {
         AnimatedContent(
-            if (vm.editing) TopBar.EDIT else if (vm.prefs.showClock || Chrono.active.isNotEmpty()) TopBar.CLOCK else TopBar.NONE,
+            if (vm.editing) TopBar.EDIT else if (vm.prefs.showClock || Chrono.active.isNotEmpty() || toggles) TopBar.CLOCK else TopBar.NONE,
             transitionSpec = { (fadeIn(tween(300)) + slideInVertically { -it / 2 }) togetherWith (fadeOut(tween(200)) + slideOutVertically { -it / 2 }) },
             label = "editBar",
             modifier = Modifier.padding(top = 20.dp).heightIn(min = 48.dp),
         ) { bar ->
-            if (bar == TopBar.CLOCK) Clock(vm)
+            if (bar == TopBar.CLOCK) Clock(vm, toggles)
             else if (bar == TopBar.EDIT) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.settingsOpen = true }
@@ -179,7 +182,7 @@ private enum class TopBar { NONE, CLOCK, EDIT }
 
 /** Orologio facoltativo: ore e data, aggiornati allo scoccare di ogni minuto. Accanto, timer e cronometri attivi. */
 @Composable
-private fun Clock(vm: KansoViewModel) {
+private fun Clock(vm: KansoViewModel, toggles: Boolean) {
     val chronos = Chrono.active
     val now by produceState(System.currentTimeMillis(), chronos.isEmpty()) {
         while (true) {
@@ -197,13 +200,22 @@ private fun Clock(vm: KansoViewModel) {
             }
         }
         val chips = @Composable { chronos.take(2).forEach { ChronoChip(it, now) { vm.launch(it.pkg) } } }
-        // Accanto all'orologio in colonna; da soli, in riga.
+        val buttons = @Composable {
+            if (toggles) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (vm.prefs.showTorch) TorchButton()
+            }
+        }
+        // Accanto all'orologio in colonna, coi pulsanti sotto; da soli, in riga coi pulsanti a destra.
         if (vm.prefs.showClock) Column(
             Modifier.padding(bottom = 6.dp).animateContentSize(Motion.soft()),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.End,
-        ) { chips() }
-        else Row(Modifier.animateContentSize(Motion.soft()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
+        ) { chips(); buttons() }
+        else {
+            Row(Modifier.animateContentSize(Motion.soft()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
+            Spacer(Modifier.weight(1f))
+            buttons()
+        }
     }
 }
 

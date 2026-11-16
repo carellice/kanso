@@ -113,6 +113,8 @@ fun SettingsSheet(vm: KansoViewModel) {
                 Divider()
                 Toggle("Mostra l'orologio", "Ora e data in alto nella Home", p.showClock, p::saveShowClock)
                 Divider()
+                Toggle("Pulsante torcia", "In alto nella Home, accanto all'orologio", p.showTorch, p::saveShowTorch)
+                Divider()
                 Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
             }
 
