@@ -99,7 +99,8 @@ fun KansoApp(vm: KansoViewModel) {
                     scaleX = dim.coerceAtLeast(0.96f) * back; scaleY = scaleX
                     alpha = dim * lerp(0.3f, 1f, arrival.value).coerceIn(0f, 1f) * (1f - depart.value * 0.85f)
                 }
-                .blur(blur),
+                .blur(blur)
+                .backdrop(),
         ) {
             Glow(pager)
             HorizontalPager(
@@ -119,7 +120,7 @@ fun KansoApp(vm: KansoViewModel) {
             // Sfumatura in basso: il contenuto che scorre svanisce sotto i pallini.
             Box(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(110.dp)
-                    .background(Brush.verticalGradient(listOf(K.Ink.copy(alpha = 0f), K.Ink.copy(alpha = 0.92f)))),
+                    .background(Brush.verticalGradient(listOf(K.Ink.copy(alpha = 0f), K.Ink.copy(alpha = if (K.skeuo) 0.5f else 0.92f)))),
             )
             PageDots(pager, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 14.dp))
         }
@@ -217,7 +218,11 @@ private fun PageDots(pager: PagerState, modifier: Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(3) { i ->
             val d = ((pager.currentPage - i) + pager.currentPageOffsetFraction).absoluteValue.coerceIn(0f, 1f)
-            Box(
+            if (K.skeuo) Box(
+                // Fori incisi nel cuoio; quello della pagina attuale si accende d'ottone.
+                Modifier.height(7.dp).width(lerp(20f, 7f, d).dp)
+                    .skin(CircleShape, androidx.compose.ui.graphics.lerp(K.Shu, K.Ink, d), inset = d > 0.5f, elevation = 2.dp),
+            ) else Box(
                 Modifier
                     .height(5.dp)
                     .width(lerp(18f, 5f, d).dp)

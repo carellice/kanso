@@ -109,7 +109,7 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
     val cardHeight = maxOf(168.dp, with(density) { tallest.toDp() } + 25.dp)
     Column(modifier.fillMaxWidth()) {
     Box(
-        Modifier.fillMaxWidth().height(cardHeight).animateContentSize(Motion.soft()).clip(shape).background(K.Surface).border(1.dp, K.Line, shape),
+        Modifier.fillMaxWidth().height(cardHeight).animateContentSize(Motion.soft()).skin(shape, stitched = 24.dp),
     ) {
         if (!vm.hasCalendarAccess || days.isEmpty()) {
             Text(
@@ -264,7 +264,7 @@ fun AgendaOverlay(vm: KansoViewModel) {
     val today = dayKey(System.currentTimeMillis(), false)
     val tomorrow = dayKey(System.currentTimeMillis() + 86_400_000L, false)
     val days = remember(vm.agenda) { vm.agenda.groupBy { it.day }.toList() }
-    Column(Modifier.fillMaxSize().background(K.Ink).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().backdrop(cloth = true).statusBarsPadding()) {
         Row(Modifier.padding(start = 24.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Eyebrow("Prossimi $AGENDA_DAYS giorni")

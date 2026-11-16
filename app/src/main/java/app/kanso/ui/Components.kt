@@ -28,7 +28,10 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.ColorFilter
@@ -52,6 +55,11 @@ fun AppIcon(repo: AppsRepository, pkg: String, size: Dp, monochrome: Boolean = f
     val alpha by animateFloatAsState(if (icon != null) 1f else 0f, tween(260), label = "icon")
     Box(modifier.size(size)) {
         icon?.let {
+            // Skeuomorfismo: l'icona è un oggetto appoggiato sul cuoio e proietta la sua ombra.
+            if (K.skeuo) Image(
+                it, null, Modifier.size(size).offset(y = size * 0.05f).graphicsLayer { this.alpha = alpha * 0.45f }.blur(size * 0.05f),
+                colorFilter = ColorFilter.tint(Color.Black),
+            )
             Image(
                 it, null, Modifier.size(size).graphicsLayer { this.alpha = alpha },
                 colorFilter = if (monochrome) grayscale else null,
@@ -97,9 +105,7 @@ fun KCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(K.Surface)
-            .border(1.dp, K.Line, RoundedCornerShape(28.dp))
+            .skin(RoundedCornerShape(28.dp), stitched = 28.dp)
             .padding(22.dp),
     ) { content() }
 }
@@ -119,22 +125,32 @@ fun PillButton(
     Row(
         modifier
             .graphicsLayer { this.alpha = alpha }
-            .clip(CircleShape)
-            .background(bg)
+            .then(
+                when {
+                    !K.skeuo -> Modifier.clip(CircleShape).background(bg)
+                    filled -> Modifier.brass()
+                    else -> Modifier.skin(CircleShape, bg, elevation = 3.dp)
+                },
+            )
             .then(if (enabled) Modifier.pressable(onClick = onClick) else Modifier)
             .padding(horizontal = 22.dp, vertical = 15.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         icon?.let { Icon(it, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.size(8.dp)) }
-        Text(text, style = MaterialTheme.typography.labelLarge, color = fg, textAlign = TextAlign.Center)
+        // Sull'ottone le lettere sono incise: ombra chiara sotto invece che scura.
+        val style = MaterialTheme.typography.labelLarge
+        Text(
+            text, style = if (K.skeuo && filled) style.copy(shadow = androidx.compose.ui.graphics.Shadow(Color.White.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 1.5f), 0f)) else style,
+            color = fg, textAlign = TextAlign.Center,
+        )
     }
 }
 
 @Composable
 fun IconCircle(icon: ImageVector, description: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        modifier.size(44.dp).clip(CircleShape).background(K.Surface).border(1.dp, K.Line, CircleShape).pressable(onClick = onClick),
+        modifier.size(44.dp).skin(CircleShape, elevation = 3.dp).pressable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, description, Modifier.size(20.dp), tint = K.Paper) }
 }

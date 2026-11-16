@@ -62,7 +62,7 @@ fun SettingsSheet(vm: KansoViewModel) {
     val isHome = rememberIsHome(vm)
     val requestHome = rememberHomeRequest(vm)
 
-    Box(Modifier.fillMaxSize().background(K.Ink)) {
+    Box(Modifier.fillMaxSize().backdrop(cloth = true)) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -88,6 +88,15 @@ fun SettingsSheet(vm: KansoViewModel) {
                 Row_("Rivedi la presentazione", "Le schede del primo avvio") {
                     vm.settingsOpen = false; p.saveOnboarded(false)
                 }
+            }
+
+            Section("Stile") {
+                Segmented(listOf("Kanso", "Skeuomorfismo"), if (p.skeuo) 1 else 0) { p.saveSkeuo(it == 1) }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (p.skeuo) "Cuoio cucito, ottone e rilievi, come gli oggetti veri." else "Inchiostro, carta e un solo accento: essenziale.",
+                    style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+                )
             }
 
             Section("Home") {
@@ -242,7 +251,7 @@ fun rememberHomeRequest(vm: KansoViewModel): () -> Unit {
 }
 
 @Composable
-private fun Divider() =Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(K.Line))
+private fun Divider() = Groove()
 
 @Composable
 internal fun Row_(title: String, subtitle: String, done: Boolean? = null, onClick: () -> Unit) {
@@ -265,7 +274,7 @@ internal fun Row_(title: String, subtitle: String, done: Boolean? = null, onClic
 
 @Composable
 private fun Toggle(title: String, subtitle: String, value: Boolean, onChange: (Boolean) -> Unit) {
-    val knob by animateDpAsState(if (value) 22.dp else 2.dp, Motion.press(), label = "knob")
+    val knob by animateDpAsState(if (value) (if (K.skeuo) 24.dp else 22.dp) else 2.dp, Motion.press(), label = "knob")
     val track by animateColorAsState(if (value) K.Paper else K.SurfaceHigher, tween(250), label = "track")
     val dot by animateColorAsState(if (value) K.Ink else K.Muted, tween(250), label = "dot")
     Row(
@@ -277,7 +286,13 @@ private fun Toggle(title: String, subtitle: String, value: Boolean, onChange: (B
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = K.Muted)
         }
         Spacer(Modifier.width(12.dp))
-        Box(Modifier.width(48.dp).height(28.dp).clip(CircleShape).background(track)) {
+        if (K.skeuo) {
+            // Levetta: binario incassato che si colora, pomello di metallo che scorre.
+            val lit by animateColorAsState(if (value) K.Matcha else K.Ink, tween(250), label = "lit")
+            Box(Modifier.width(52.dp).height(30.dp).skin(CircleShape, lit, inset = true)) {
+                Box(Modifier.offset(x = knob, y = 2.dp).size(26.dp).knob())
+            }
+        } else Box(Modifier.width(48.dp).height(28.dp).clip(CircleShape).background(track)) {
             Box(Modifier.offset(x = knob, y = 2.dp).size(24.dp).clip(CircleShape).background(dot))
         }
     }
@@ -287,11 +302,11 @@ private fun Toggle(title: String, subtitle: String, value: Boolean, onChange: (B
 @Composable
 private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     BoxWithConstraints(
-        Modifier.fillMaxWidth().height(46.dp).clip(CircleShape).background(K.SurfaceHigh).border(1.dp, K.Line, CircleShape).padding(4.dp),
+        Modifier.fillMaxWidth().height(46.dp).skin(CircleShape, K.SurfaceHigh, inset = true).padding(4.dp),
     ) {
         val w = maxWidth / options.size
         val x by animateDpAsState(w * selected, Motion.soft(), label = "seg")
-        Box(Modifier.offset(x = x).width(w).fillMaxHeight().clip(CircleShape).background(K.Paper))
+        Box(Modifier.offset(x = x).width(w).fillMaxHeight().then(if (K.skeuo) Modifier.brass() else Modifier.clip(CircleShape).background(K.Paper)))
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, o ->
                 val color by animateColorAsState(if (i == selected) K.Ink else K.Paper, tween(250), label = "segText")

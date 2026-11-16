@@ -130,7 +130,7 @@ private fun ScreenTimeCard(usage: DayUsage) {
             Spacer(Modifier.height(18.dp))
             HourlyChart(usage.hourly)
             Spacer(Modifier.height(20.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(K.Line))
+            Groove()
             Spacer(Modifier.height(18.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -199,7 +199,10 @@ private fun TopAppsCard(vm: KansoViewModel, usage: DayUsage) {
                             Text(formatDuration(ms), style = MaterialTheme.typography.labelMedium, color = K.Muted)
                         }
                         Spacer(Modifier.height(8.dp))
-                        Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(K.SurfaceHigher)) {
+                        if (K.skeuo) Box(Modifier.fillMaxWidth().height(8.dp).skin(CircleShape, K.Ink, inset = true)) {
+                            // Un righello d'ottone dentro una scanalatura.
+                            Box(Modifier.fillMaxWidth(p.coerceIn(0.04f, 1f)).height(8.dp).then(if (i == 0) Modifier.brass() else Modifier.skin(CircleShape, K.Muted, elevation = 1.dp)))
+                        } else Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(K.SurfaceHigher)) {
                             Box(Modifier.fillMaxWidth(p.coerceIn(0.02f, 1f)).height(4.dp).clip(CircleShape).background(if (i == 0) K.Shu else K.Paper.copy(alpha = 0.6f)))
                         }
                     }

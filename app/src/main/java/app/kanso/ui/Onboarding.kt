@@ -88,7 +88,7 @@ fun Onboarding(vm: KansoViewModel) {
 
     BackHandler(pager.currentPage > 0) { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }
 
-    Box(Modifier.fillMaxSize().background(K.Ink)) {
+    Box(Modifier.fillMaxSize().backdrop()) {
         OnboardingGlow(pager)
         HorizontalPager(pager, Modifier.fillMaxSize()) { page ->
             val d = page - (pager.currentPage + pager.currentPageOffsetFraction)
@@ -216,8 +216,7 @@ private fun ThreePages(active: Boolean) {
             val glow by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0f, tween(500), label = "glow$i")
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }) {
                 Box(
-                    Modifier.width(78.dp).height(150.dp).clip(RoundedCornerShape(18.dp)).background(K.Surface)
-                        .border(1.dp, if (on) K.Shu.copy(alpha = 0.6f) else K.Line, RoundedCornerShape(18.dp)).padding(10.dp),
+                    Modifier.width(78.dp).height(150.dp).skin(RoundedCornerShape(18.dp), border = if (on) K.Shu.copy(alpha = 0.6f) else K.Line).padding(10.dp),
                 ) { MiniPage(i, glow) }
                 Spacer(Modifier.height(10.dp))
                 Text(label, style = MaterialTheme.typography.labelMedium, color = if (on) K.Paper else K.Faint)
@@ -302,7 +301,7 @@ private fun SearchArt(active: Boolean) {
     )
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
-            Modifier.fillMaxWidth().height(56.dp).clip(CircleShape).background(K.SurfaceHigh).border(1.dp, K.Line, CircleShape).padding(horizontal = 20.dp),
+            Modifier.fillMaxWidth().height(56.dp).skin(CircleShape, K.SurfaceHigh, inset = true).padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Icons.Rounded.Search, null, Modifier.size(20.dp), tint = K.Muted)
@@ -314,7 +313,7 @@ private fun SearchArt(active: Boolean) {
         val a by androidx.compose.animation.core.animateFloatAsState(if (shown) 1f else 0f, tween(350, easing = Motion.Calm), label = "result")
         Row(
             Modifier.fillMaxWidth().graphicsLayer { alpha = a; translationY = (1f - a) * 24f }
-                .clip(RoundedCornerShape(20.dp)).background(K.Surface).border(1.dp, K.Line, RoundedCornerShape(20.dp)).padding(18.dp),
+                .skin(RoundedCornerShape(20.dp)).padding(18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(K.Shu.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {

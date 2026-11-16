@@ -126,9 +126,7 @@ fun SearchOverlay(vm: KansoViewModel) {
                 Modifier
                     .weight(1f)
                     .height(58.dp)
-                    .clip(CircleShape)
-                    .background(K.SurfaceHigh)
-                    .border(1.dp, K.Paper.copy(alpha = 0.16f), CircleShape)
+                    .skin(CircleShape, K.SurfaceHigh, inset = true, border = K.Paper.copy(alpha = 0.16f))
                     .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -225,7 +223,7 @@ private fun ResultRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(42.dp).clip(CircleShape).background(if (accent) K.Shu.copy(alpha = 0.18f) else K.SurfaceHigh),
+            Modifier.size(42.dp).skin(CircleShape, if (accent) K.Shu.copy(alpha = if (K.skeuo) 0.5f else 0.18f) else K.SurfaceHigh, border = androidx.compose.ui.graphics.Color.Transparent, elevation = 3.dp),
             contentAlignment = Alignment.Center,
         ) { Icon(icon, null, Modifier.size(20.dp), tint = if (accent) K.Shu else K.Paper) }
         Spacer(Modifier.width(16.dp))

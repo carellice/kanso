@@ -65,6 +65,7 @@ import app.kanso.data.AppEntry
 import app.kanso.data.LockMode
 import app.kanso.data.formatDuration
 import kotlinx.coroutines.delay
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
 
 /** Velo scuro a tutto schermo che chiude la sovrapposizione se si tocca fuori. */
@@ -86,9 +87,7 @@ fun ModalCard(onDismiss: () -> Unit, content: @Composable () -> Unit) {
                 Modifier
                     .padding(28.dp)
                     .graphicsLayer { alpha = a.value.coerceIn(0f, 1f); scaleX = 0.9f + 0.1f * a.value; scaleY = 0.9f + 0.1f * a.value }
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(K.SurfaceHigh)
-                    .border(1.dp, K.Line, RoundedCornerShape(32.dp))
+                    .skin(RoundedCornerShape(32.dp), K.SurfaceHigh, elevation = 16.dp, stitched = 32.dp)
                     .pointerInput(Unit) { detectTapGestures { } }
                     .padding(26.dp),
             ) { content() }
@@ -246,8 +245,14 @@ fun PinPad(title: String, subtitle: String = "", check: (String) -> Boolean, onD
                 val filled = i < pin.length
                 val s by animateFloatAsState(if (filled) 1f else 0.55f, Motion.press(), label = "dot")
                 Box(
-                    Modifier.size(14.dp).graphicsLayer { scaleX = s; scaleY = s }.clip(CircleShape)
-                        .background(if (filled) K.Paper else K.Paper.copy(alpha = 0.18f)),
+                    Modifier.size(14.dp).graphicsLayer { scaleX = s; scaleY = s }
+                        .then(
+                            when {
+                                !K.skeuo -> Modifier.clip(CircleShape).background(if (filled) K.Paper else K.Paper.copy(alpha = 0.18f))
+                                filled -> Modifier.brass()
+                                else -> Modifier.skin(CircleShape, K.Ink, inset = true)
+                            },
+                        ),
                 )
             }
         }
@@ -257,8 +262,14 @@ fun PinPad(title: String, subtitle: String = "", check: (String) -> Boolean, onD
             Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 row.forEach { k ->
                     Box(
-                        Modifier.size(72.dp).clip(CircleShape)
-                            .then(if (k.isEmpty()) Modifier else Modifier.background(if (k == "<") K.Ink.copy(alpha = 0f) else K.SurfaceHigh))
+                        Modifier.size(72.dp)
+                            .then(
+                                when (k) {
+                                    "" -> Modifier
+                                    "<" -> Modifier.clip(CircleShape)
+                                    else -> Modifier.skin(CircleShape, K.SurfaceHigh, border = Color.Transparent, elevation = 4.dp)
+                                },
+                            )
                             .then(if (k.isEmpty()) Modifier else Modifier.pressable(pressedScale = 0.88f) {
                                 error = false
                                 pin = if (k == "<") pin.dropLast(1) else if (pin.length < 4) pin + k else pin
@@ -294,7 +305,7 @@ fun AppPicker(vm: KansoViewModel) {
             app.kanso.data.normalize(it.label).contains(app.kanso.data.normalize(query.trim()))
         }.distinct()
     }
-    Column(Modifier.fillMaxSize().background(K.Ink).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().backdrop(cloth = true).statusBarsPadding()) {
         Row(Modifier.padding(start = 24.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Aggiungi alla Home", style = MaterialTheme.typography.headlineMedium, color = K.Paper, modifier = Modifier.weight(1f))
             Text("Chiudi", style = MaterialTheme.typography.labelLarge, color = K.Paper,
@@ -331,8 +342,7 @@ fun FieldBox(
     password: Boolean = false,
 ) {
     Box(
-        modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(18.dp)).background(K.SurfaceHigh)
-            .border(1.dp, K.Line, RoundedCornerShape(18.dp)).padding(horizontal = 18.dp),
+        modifier.fillMaxWidth().height(54.dp).skin(RoundedCornerShape(18.dp), K.SurfaceHigh, inset = true).padding(horizontal = 18.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         if (value.isEmpty()) Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = K.Faint)

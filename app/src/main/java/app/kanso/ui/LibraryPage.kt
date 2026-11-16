@@ -58,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import app.kanso.KansoViewModel
 import app.kanso.data.AppEntry
 import app.kanso.data.Category
@@ -145,7 +146,7 @@ private fun PrivateCard(vm: KansoViewModel, modifier: Modifier) {
                 Text("Spazio privato", style = MaterialTheme.typography.titleLarge, color = K.Paper, modifier = Modifier.weight(1f))
                 Text(
                     if (vm.privateLocked) "Sblocca" else "Blocca", style = MaterialTheme.typography.labelLarge, color = K.Paper,
-                    modifier = Modifier.clip(CircleShape).background(K.SurfaceHigh).pressable { vm.togglePrivate() }
+                    modifier = Modifier.skin(CircleShape, K.SurfaceHigh, border = Color.Transparent, elevation = 2.dp).pressable { vm.togglePrivate() }
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 )
             }
@@ -220,8 +221,8 @@ private fun AppMenu(vm: KansoViewModel, app: AppEntry, onDismiss: () -> Unit) {
                     Category.entries.forEach { c ->
                         val current = c == app.category
                         Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                                .background(if (current) K.Surface else K.SurfaceHigh)
+                            Modifier.fillMaxWidth()
+                                .skin(RoundedCornerShape(16.dp), if (current) K.Surface else K.SurfaceHigh, inset = current, border = Color.Transparent, elevation = 2.dp)
                                 .pressable(pressedScale = 0.98f) { vm.setCategory(app.pkg, c); onDismiss() }
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,

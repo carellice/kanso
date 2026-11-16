@@ -75,6 +75,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import android.content.Intent
 import android.provider.AlarmClock
@@ -213,9 +214,7 @@ private fun ChronoChip(c: ChronoInfo, now: Long, onClick: () -> Unit) {
     val text = c.frozen ?: Chrono.format(if (ms < 0) -s * 1000 else s * 1000)
     Row(
         Modifier
-            .clip(CircleShape)
-            .background(K.Surface)
-            .border(1.dp, K.Line, CircleShape)
+            .skin(CircleShape, elevation = 3.dp)
             .pressable(pressedScale = 0.95f, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -352,9 +351,7 @@ private fun Tile(
         Column(
             Modifier
                 .fillMaxSize()
-                .clip(shape)
-                .background(K.Surface)
-                .border(1.dp, K.Line, shape)
+                .skin(shape)
                 .pressable(onLongClick = onLongClick, onClick = onClick)
                 .padding(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -372,9 +369,7 @@ private fun Tile(
                     .align(Alignment.TopStart)
                     .offset((-4).dp, (-4).dp)
                     .size(26.dp)
-                    .clip(CircleShape)
-                    .background(K.SurfaceHigher)
-                    .border(1.dp, K.Line, CircleShape)
+                    .then(if (K.skeuo) Modifier.skin(CircleShape, Color(0xFFB0402C), elevation = 3.dp) else Modifier.skin(CircleShape, K.SurfaceHigher))
                     .pressable(onClick = onRemove),
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Rounded.Remove, "Rimuovi", Modifier.size(16.dp), tint = K.Paper) }
@@ -386,7 +381,10 @@ private fun Tile(
 private fun AddTile(onClick: () -> Unit) {
     val shape = RoundedCornerShape(30)
     Box(
-        Modifier.aspectRatio(1f).clip(shape).border(1.dp, K.Paper.copy(alpha = 0.22f), shape).pressable(onClick = onClick),
+        Modifier.aspectRatio(1f)
+            // Kanso: solo il contorno. Skeuomorfismo: un alloggiamento vuoto, incassato nel cuoio.
+            .then(if (K.skeuo) Modifier.skin(shape, K.Surface, inset = true) else Modifier.clip(shape).border(1.dp, K.Paper.copy(alpha = 0.22f), shape))
+            .pressable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(Icons.Rounded.Add, "Aggiungi app", Modifier.size(28.dp), tint = K.Muted) }
 }
@@ -397,9 +395,7 @@ fun SearchBar(modifier: Modifier = Modifier, onClick: () -> Unit) {
         modifier
             .fillMaxWidth()
             .height(58.dp)
-            .clip(CircleShape)
-            .background(K.Surface)
-            .border(1.dp, K.Line, CircleShape)
+            .skin(CircleShape, inset = true)
             .pressable(pressedScale = 0.97f, onClick = onClick)
             .padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
