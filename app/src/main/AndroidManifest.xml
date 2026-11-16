@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Il pulsante suoneria: passare al silenzioso tocca il "Non disturbare". -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <!-- Solo lettura: l'agenda con gli impegni dei prossimi giorni. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <!-- Concesso all'app Home da Android 15: vedere e sbloccare lo spazio privato. -->
