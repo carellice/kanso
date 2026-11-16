@@ -91,13 +91,14 @@ fun SettingsSheet(vm: KansoViewModel) {
             }
 
             Section("Stile") {
-                Segmented(listOf("Kanso", "Skeuo", "Modern UI"), p.style.ordinal) { p.saveStyle(app.kanso.data.Style.entries[it]) }
+                Segmented(listOf("Kanso", "Skeuo", "Modern UI", "Nothing"), p.style.ordinal) { p.saveStyle(app.kanso.data.Style.entries[it]) }
                 Spacer(Modifier.height(8.dp))
                 Text(
                     when (p.style) {
                         app.kanso.data.Style.KANSO -> "Inchiostro, carta e un solo accento: essenziale."
                         app.kanso.data.Style.SKEUO -> "Cuoio cucito, ottone e rilievi, come gli oggetti veri."
                         app.kanso.data.Style.METRO -> "Nero pieno, riquadri vivi e testo sottile, come Windows Phone."
+                        app.kanso.data.Style.NOTHING -> "Nero OLED, griglia di punti, cifre a matrice e un solo rosso segnale."
                     },
                     style = MaterialTheme.typography.bodyMedium, color = K.Muted,
                 )
@@ -329,7 +330,12 @@ private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> U
             options.forEachIndexed { i, o ->
                 val color by animateColorAsState(if (i == selected && !K.metro) K.Ink else K.Paper, tween(250), label = "segText")
                 Box(Modifier.weight(1f).fillMaxHeight().clip(CircleShape).pressable(pressedScale = 0.96f) { onSelect(i) }, contentAlignment = Alignment.Center) {
-                    Text(if (K.metro) o.lowercase() else o, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1)
+                    Text(
+                        when { K.metro -> o.lowercase(); K.nothing -> o.uppercase(); else -> o },
+                        // Con quattro voci il testo pieno non ci sta: si passa alla misura delle etichette.
+                        style = if (options.size > 3) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
+                        color = color, maxLines = 1,
+                    )
                 }
             }
         }

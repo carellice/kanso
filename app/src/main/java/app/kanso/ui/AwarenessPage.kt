@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -199,7 +200,11 @@ private fun TopAppsCard(vm: KansoViewModel, usage: DayUsage) {
                             Text(formatDuration(ms), style = MaterialTheme.typography.labelMedium, color = K.Muted)
                         }
                         Spacer(Modifier.height(8.dp))
-                        if (K.skeuo) Box(Modifier.fillMaxWidth().height(8.dp).skin(CircleShape, K.Ink, inset = true)) {
+                        if (K.nothing) Row(Modifier.fillMaxWidth().height(8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            // Nothing: la barra a segmenti discreti, come un indicatore di uno strumento.
+                            val on = (p * 24).toInt().coerceIn(1, 24)
+                            repeat(24) { s -> Box(Modifier.weight(1f).fillMaxHeight().background(if (s < on) (if (i == 0) K.Shu else K.Paper) else K.Line)) }
+                        } else if (K.skeuo) Box(Modifier.fillMaxWidth().height(8.dp).skin(CircleShape, K.Ink, inset = true)) {
                             // Un righello d'ottone dentro una scanalatura.
                             Box(Modifier.fillMaxWidth(p.coerceIn(0.04f, 1f)).height(8.dp).then(if (i == 0) Modifier.brass() else Modifier.skin(CircleShape, K.Muted, elevation = 1.dp)))
                         } else Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(K.SurfaceHigher)) {

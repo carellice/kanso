@@ -411,6 +411,8 @@ private fun Tile(
                         when {
                             // Metro: il bollino bianco per staccare il riquadro dalla Start.
                             K.metro -> Modifier.clip(CircleShape).background(K.Paper)
+                            // Nothing: togliere è distruttivo, quindi il rosso segnale.
+                            K.nothing -> Modifier.clip(CircleShape).background(K.Shu)
                             K.skeuo -> Modifier.skin(CircleShape, Color(0xFFB0402C), elevation = 3.dp)
                             else -> Modifier.skin(CircleShape, K.SurfaceHigher)
                         },
@@ -431,6 +433,7 @@ private fun AddTile(onClick: () -> Unit) {
             .then(
                 when {
                     K.metro -> Modifier.border(2.dp, K.Faint)
+                    K.nothing -> Modifier.clip(RoundedCornerShape(16.dp)).border(1.dp, K.SurfaceHigher, RoundedCornerShape(16.dp))
                     K.skeuo -> Modifier.skin(shape, K.Surface, inset = true)
                     else -> Modifier.clip(shape).border(1.dp, K.Paper.copy(alpha = 0.22f), shape)
                 },

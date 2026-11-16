@@ -192,7 +192,7 @@ private fun Modifier.pageTransition(pager: PagerState, page: Int) = graphicsLaye
 /** Un alone caldo che segue lo scorrimento tra le pagine. */
 @Composable
 private fun Glow(pager: PagerState) {
-    if (K.metro) return // Metro: nero pieno, nessun alone.
+    if (K.metro || K.nothing) return // Metro e Nothing: nero pieno, nessun alone.
     Box(
         Modifier.fillMaxSize().drawBehind {
             val pos = pager.currentPage + pager.currentPageOffsetFraction // 0..2
@@ -224,6 +224,9 @@ private fun PageDots(pager: PagerState, modifier: Modifier) {
                 // Fori incisi nel cuoio; quello della pagina attuale si accende d'ottone.
                 Modifier.height(7.dp).width(lerp(20f, 7f, d).dp)
                     .skin(CircleShape, androidx.compose.ui.graphics.lerp(K.Shu, K.Ink, d), inset = d > 0.5f, elevation = 2.dp),
+            ) else if (K.nothing) Box(
+                // Nothing: punti della matrice; quello della pagina attuale si accende di bianco.
+                Modifier.size(6.dp).clip(CircleShape).background(androidx.compose.ui.graphics.lerp(K.Paper, K.SurfaceHigher, d)),
             ) else if (K.metro) Box(
                 // Metro: tasselli quadrati, quello della pagina attuale nel colore d'accento.
                 Modifier.size(lerp(9f, 6f, d).dp).background(androidx.compose.ui.graphics.lerp(K.Shu, K.Paper.copy(alpha = 0.3f), d)),

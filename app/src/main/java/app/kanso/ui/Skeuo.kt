@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -92,9 +93,20 @@ private fun DrawScope.stitch(inset: Dp, corner: Dp, color: Color) {
 }
 
 /** Sfondo pieno: cuoio con vignettatura e cucitura sul bordo, oppure lino per le schede sovrapposte. */
-fun Modifier.backdrop(cloth: Boolean = false, stitched: Boolean = !cloth): Modifier =
-    if (!K.skeuo) background(K.Ink)
-    else drawBehind {
+fun Modifier.backdrop(cloth: Boolean = false, stitched: Boolean = !cloth): Modifier = when {
+    // Nothing: nero OLED con la griglia di punti appena visibile, la firma della matrice.
+    K.nothing -> background(K.Ink).drawBehind {
+        val step = 16.dp.toPx()
+        val dot = Color.White.copy(alpha = 0.09f)
+        var y = step / 2
+        while (y < size.height) {
+            var x = step / 2
+            while (x < size.width) { drawCircle(dot, 1.dp.toPx(), Offset(x, y)); x += step }
+            y += step
+        }
+    }
+    !K.skeuo -> background(K.Ink)
+    else -> drawBehind {
         if (cloth) {
             drawRect(Color(0xFF2A221B))
             drawRect(linenBrush)
@@ -105,6 +117,10 @@ fun Modifier.backdrop(cloth: Boolean = false, stitched: Boolean = !cloth): Modif
         drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)), center, size.maxDimension * 0.72f))
         if (stitched) stitch(9.dp, 34.dp, K.Shu.copy(alpha = 0.55f))
     }
+}
+
+/** Nothing: le schede non superano i 16dp di raggio; le pillole restano pillole. */
+private val NothingCard = RoundedCornerShape(16.dp)
 
 /**
  * Superficie di un controllo. Kanso: colore pieno e filo sottile. Skeuomorfismo: in rilievo con luce dall'alto,
@@ -120,6 +136,10 @@ fun Modifier.skin(
 ): Modifier = when {
     // Metro: niente angoli, ombre o fili. Pieno e quadrato; i campi hanno il bordo spesso dei TextBox di Windows Phone.
     K.metro -> if (inset) background(color).border(2.dp, K.Muted) else background(color)
+    // Nothing: piatto, senza ombre; i campi incassati hanno il bordo visibile, il resto un filo appena percettibile.
+    K.nothing -> (if (shape == CircleShape) shape else NothingCard).let { s ->
+        clip(s).background(if (inset) K.Ink else color).border(1.dp, if (inset) K.SurfaceHigher else border, s)
+    }
     !K.skeuo -> clip(shape).background(color).border(1.dp, border, shape)
     inset -> clip(shape)
         .background(Brush.verticalGradient(listOf(lerp(color, Color.Black, 0.55f), lerp(color, Color.Black, 0.3f))))

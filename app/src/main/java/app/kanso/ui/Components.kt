@@ -125,7 +125,7 @@ fun PillButton(
     icon: ImageVector? = null,
     onClick: () -> Unit,
 ) {
-    val bg = if (filled) (if (K.metro) K.Shu else K.Paper) else K.SurfaceHigh
+    val bg = if (filled) (if (K.metro) K.Shu else K.Paper) else if (K.nothing) Color.Transparent else K.SurfaceHigh
     val fg = if (filled && !K.metro) K.Ink else K.Paper
     val alpha by animateFloatAsState(if (enabled) 1f else 0.35f, tween(300), label = "pill")
     Row(
@@ -135,6 +135,8 @@ fun PillButton(
                 when {
                     // Metro: bottone rettangolare, pieno d'accento oppure vuoto col bordo bianco.
                     K.metro -> if (filled) Modifier.background(bg) else Modifier.border(2.dp, K.Paper)
+                    // Nothing: primario pillola bianca, secondario solo il contorno.
+                    K.nothing -> if (filled) Modifier.clip(CircleShape).background(bg) else Modifier.border(1.dp, K.SurfaceHigher, CircleShape)
                     !K.skeuo -> Modifier.clip(CircleShape).background(bg)
                     filled -> Modifier.brass()
                     else -> Modifier.skin(CircleShape, bg, elevation = 3.dp)
@@ -149,7 +151,7 @@ fun PillButton(
         // Sull'ottone le lettere sono incise: ombra chiara sotto invece che scura.
         val style = MaterialTheme.typography.labelLarge
         Text(
-            if (K.metro) text.lowercase() else text, style = if (K.skeuo && filled) style.copy(shadow = androidx.compose.ui.graphics.Shadow(Color.White.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 1.5f), 0f)) else style,
+            when { K.metro -> text.lowercase(); K.nothing -> text.uppercase(); else -> text }, style = if (K.skeuo && filled) style.copy(shadow = androidx.compose.ui.graphics.Shadow(Color.White.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 1.5f), 0f)) else style,
             color = fg, textAlign = TextAlign.Center,
         )
     }
@@ -167,7 +169,8 @@ fun IconCircle(icon: ImageVector, description: String, modifier: Modifier = Modi
 @Composable
 fun AppLabel(text: String, modifier: Modifier = Modifier) =
     Text(
-        text, modifier, style = MaterialTheme.typography.labelMedium, color = K.Paper.copy(alpha = 0.82f),
+        // Nothing: i nomi delle app come etichette di uno strumento, monospazio maiuscolo.
+        if (K.nothing) text.uppercase() else text, modifier, style = MaterialTheme.typography.labelMedium, color = K.Paper.copy(alpha = 0.82f),
         maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
     )
 
