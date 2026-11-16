@@ -7,6 +7,9 @@ import androidx.compose.runtime.setValue
 import java.security.MessageDigest
 import java.security.SecureRandom
 
+/** Stile grafico: Kanso (piatto), skeuomorfismo, Modern UI (Windows Phone). */
+enum class Style { KANSO, SKEUO, METRO }
+
 enum class LockMode(val title: String, val hint: String) {
     NONE("Nessuno", "Impostazioni e Home sempre modificabili"),
     PIN("PIN", "Un codice di 4 cifre"),
@@ -24,7 +27,11 @@ class Prefs(context: Context) {
     var frictionSeconds by mutableStateOf(sp.getInt("frictionSeconds", 5)); private set
     var monochrome by mutableStateOf(sp.getBoolean("monochrome", true)); private set
     var showClock by mutableStateOf(sp.getBoolean("showClock", false)); private set
-    var skeuo by mutableStateOf(sp.getBoolean("skeuo", false)); private set
+    // Prima c'era solo l'interruttore "skeuo": chi lo aveva acceso resta sullo skeuomorfismo.
+    var style by mutableStateOf(
+        sp.getString("style", null)?.let { runCatching { Style.valueOf(it) }.getOrNull() }
+            ?: if (sp.getBoolean("skeuo", false)) Style.SKEUO else Style.KANSO,
+    ); private set
     var lockMode by mutableStateOf(LockMode.valueOf(sp.getString("lockMode", LockMode.NONE.name)!!)); private set
     // Chi aggiorna da una versione precedente ha già delle preferenze: niente presentazione.
     var onboarded by mutableStateOf(sp.getBoolean("onboarded", sp.all.isNotEmpty())); private set
@@ -46,7 +53,7 @@ class Prefs(context: Context) {
     fun saveFriction(v: Boolean) { friction = v; sp.edit().putBoolean("friction", v).apply() }
     fun saveFrictionSeconds(v: Int) { frictionSeconds = v; sp.edit().putInt("frictionSeconds", v).apply() }
     fun saveMonochrome(v: Boolean) { monochrome = v; sp.edit().putBoolean("monochrome", v).apply() }
-    fun saveSkeuo(v: Boolean) { skeuo = v; sp.edit().putBoolean("skeuo", v).apply() }
+    fun saveStyle(v: Style) { style = v; sp.edit().putString("style", v.name).apply() }
     fun saveShowClock(v: Boolean) { showClock = v; sp.edit().putBoolean("showClock", v).apply() }
     fun saveOnboarded(v: Boolean = true) { onboarded = v; sp.edit().putBoolean("onboarded", v).apply() }
     fun saveLockMode(v: LockMode) { lockMode = v; sp.edit().putString("lockMode", v.name).apply() }

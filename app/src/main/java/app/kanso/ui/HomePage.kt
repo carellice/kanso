@@ -72,6 +72,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -245,7 +246,8 @@ private fun TileGrid(vm: KansoViewModel) {
 
     // Colonne e grandezza si adattano allo spazio: vince la griglia (da 2 a 5 colonne) coi riquadri più grandi che ci stanno tutti.
     BoxWithConstraints(Modifier.fillMaxSize().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-    val gap = 14.dp
+    // Metro: riquadri vicini vicini, come la Start di Windows Phone.
+    val gap = if (K.metro) 8.dp else 14.dp
     val count = order.size + (if (vm.editing) 1 else 0)
     fun tileFor(c: Int): Dp {
         val rows = (count + c - 1) / c
@@ -262,8 +264,8 @@ private fun TileGrid(vm: KansoViewModel) {
         columns = GridCells.Fixed(cols),
         state = state,
         userScrollEnabled = false,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(gap),
+        verticalArrangement = Arrangement.spacedBy(gap),
         modifier = Modifier
             .width(tile * cols + gap * (cols - 1))
             .pointerInput(vm.editing) {
@@ -339,6 +341,22 @@ private fun Tile(
     )
     val shape = RoundedCornerShape(30)
 
+    // Metro: live tile. Ogni tanto il riquadro si capovolge, mostra il nome in grande e poi torna com'era.
+    val flip = remember { Animatable(0f) }
+    val live = K.metro && showLabel && !editing
+    LaunchedEffect(live) {
+        flip.snapTo(0f)
+        if (!live) return@LaunchedEffect
+        val r = kotlin.random.Random(pkg.hashCode())
+        while (true) {
+            kotlinx.coroutines.delay(r.nextLong(6_000, 18_000))
+            flip.animateTo(180f, tween(650, easing = Motion.Standard))
+            kotlinx.coroutines.delay(r.nextLong(2_500, 5_000))
+            flip.animateTo(360f, tween(650, easing = Motion.Standard))
+            flip.snapTo(0f)
+        }
+    }
+
     Box(
         Modifier
             .aspectRatio(1f)
@@ -346,9 +364,29 @@ private fun Tile(
                 alpha = enter.value
                 translationY = (1f - enter.value) * 40.dp.toPx()
                 rotationZ = if (editing) angle else 0f
+                rotationX = flip.value
+                cameraDistance = 14f * density
             },
     ) {
-        Column(
+        if (K.metro) Box(
+            Modifier
+                .fillMaxSize()
+                .skin(shape, K.Shu)
+                .pressable(onLongClick = onLongClick, onClick = onClick)
+                .padding(if (showLabel) 10.dp else 6.dp),
+        ) {
+            val back = flip.value in 90f..270f
+            if (back) Text(
+                label.lowercase(), style = MaterialTheme.typography.titleLarge, color = K.Paper, maxLines = 3,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).graphicsLayer { rotationX = 180f },
+            ) else {
+                AppIcon(vm.appsRepo, pkg, iconSize, modifier = Modifier.align(Alignment.Center))
+                if (showLabel) Text(
+                    label, style = MaterialTheme.typography.labelMedium, color = K.Paper, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart),
+                )
+            }
+        } else Column(
             Modifier
                 .fillMaxSize()
                 .skin(shape)
@@ -369,10 +407,17 @@ private fun Tile(
                     .align(Alignment.TopStart)
                     .offset((-4).dp, (-4).dp)
                     .size(26.dp)
-                    .then(if (K.skeuo) Modifier.skin(CircleShape, Color(0xFFB0402C), elevation = 3.dp) else Modifier.skin(CircleShape, K.SurfaceHigher))
+                    .then(
+                        when {
+                            // Metro: il bollino bianco per staccare il riquadro dalla Start.
+                            K.metro -> Modifier.clip(CircleShape).background(K.Paper)
+                            K.skeuo -> Modifier.skin(CircleShape, Color(0xFFB0402C), elevation = 3.dp)
+                            else -> Modifier.skin(CircleShape, K.SurfaceHigher)
+                        },
+                    )
                     .pressable(onClick = onRemove),
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Remove, "Rimuovi", Modifier.size(16.dp), tint = K.Paper) }
+            ) { Icon(Icons.Rounded.Remove, "Rimuovi", Modifier.size(16.dp), tint = if (K.metro) K.Ink else K.Paper) }
         }
     }
 }
@@ -383,7 +428,13 @@ private fun AddTile(onClick: () -> Unit) {
     Box(
         Modifier.aspectRatio(1f)
             // Kanso: solo il contorno. Skeuomorfismo: un alloggiamento vuoto, incassato nel cuoio.
-            .then(if (K.skeuo) Modifier.skin(shape, K.Surface, inset = true) else Modifier.clip(shape).border(1.dp, K.Paper.copy(alpha = 0.22f), shape))
+            .then(
+                when {
+                    K.metro -> Modifier.border(2.dp, K.Faint)
+                    K.skeuo -> Modifier.skin(shape, K.Surface, inset = true)
+                    else -> Modifier.clip(shape).border(1.dp, K.Paper.copy(alpha = 0.22f), shape)
+                },
+            )
             .pressable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(Icons.Rounded.Add, "Aggiungi app", Modifier.size(28.dp), tint = K.Muted) }

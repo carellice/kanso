@@ -91,10 +91,14 @@ fun SettingsSheet(vm: KansoViewModel) {
             }
 
             Section("Stile") {
-                Segmented(listOf("Kanso", "Skeuomorfismo"), if (p.skeuo) 1 else 0) { p.saveSkeuo(it == 1) }
+                Segmented(listOf("Kanso", "Skeuo", "Modern UI"), p.style.ordinal) { p.saveStyle(app.kanso.data.Style.entries[it]) }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    if (p.skeuo) "Cuoio cucito, ottone e rilievi, come gli oggetti veri." else "Inchiostro, carta e un solo accento: essenziale.",
+                    when (p.style) {
+                        app.kanso.data.Style.KANSO -> "Inchiostro, carta e un solo accento: essenziale."
+                        app.kanso.data.Style.SKEUO -> "Cuoio cucito, ottone e rilievi, come gli oggetti veri."
+                        app.kanso.data.Style.METRO -> "Nero pieno, riquadri vivi e testo sottile, come Windows Phone."
+                    },
                     style = MaterialTheme.typography.bodyMedium, color = K.Muted,
                 )
             }
@@ -286,7 +290,15 @@ private fun Toggle(title: String, subtitle: String, value: Boolean, onChange: (B
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = K.Muted)
         }
         Spacer(Modifier.width(12.dp))
-        if (K.skeuo) {
+        if (K.metro) {
+            // Metro: l'interruttore di Windows Phone. Binario rettangolare bordato, riempito d'accento, e un cursore bianco.
+            val fill by animateColorAsState(if (value) K.Shu else K.Ink, tween(200), label = "fill")
+            val x by animateDpAsState(if (value) 42.dp else 0.dp, Motion.press(), label = "thumb")
+            Box(Modifier.width(54.dp).height(26.dp)) {
+                Box(Modifier.matchParentSize().border(2.dp, K.Paper).padding(5.dp).background(fill))
+                Box(Modifier.offset(x = x).width(12.dp).fillMaxHeight().background(K.Paper))
+            }
+        } else if (K.skeuo) {
             // Levetta: binario incassato che si colora, pomello di metallo che scorre.
             val lit by animateColorAsState(if (value) K.Matcha else K.Ink, tween(250), label = "lit")
             Box(Modifier.width(52.dp).height(30.dp).skin(CircleShape, lit, inset = true)) {
@@ -306,12 +318,18 @@ private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> U
     ) {
         val w = maxWidth / options.size
         val x by animateDpAsState(w * selected, Motion.soft(), label = "seg")
-        Box(Modifier.offset(x = x).width(w).fillMaxHeight().then(if (K.skeuo) Modifier.brass() else Modifier.clip(CircleShape).background(K.Paper)))
+        Box(Modifier.offset(x = x).width(w).fillMaxHeight().then(
+            when {
+                K.metro -> Modifier.background(K.Shu)
+                K.skeuo -> Modifier.brass()
+                else -> Modifier.clip(CircleShape).background(K.Paper)
+            },
+        ))
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, o ->
-                val color by animateColorAsState(if (i == selected) K.Ink else K.Paper, tween(250), label = "segText")
+                val color by animateColorAsState(if (i == selected && !K.metro) K.Ink else K.Paper, tween(250), label = "segText")
                 Box(Modifier.weight(1f).fillMaxHeight().clip(CircleShape).pressable(pressedScale = 0.96f) { onSelect(i) }, contentAlignment = Alignment.Center) {
-                    Text(o, style = MaterialTheme.typography.labelLarge, color = color)
+                    Text(if (K.metro) o.lowercase() else o, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1)
                 }
             }
         }

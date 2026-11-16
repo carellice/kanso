@@ -108,7 +108,7 @@ fun Modifier.backdrop(cloth: Boolean = false, stitched: Boolean = !cloth): Modif
 
 /**
  * Superficie di un controllo. Kanso: colore pieno e filo sottile. Skeuomorfismo: in rilievo con luce dall'alto,
- * bordo smussato e ombra portata; oppure incassata, come un campo inciso nel cuoio.
+ * bordo smussato e ombra portata; oppure incassata, come un campo inciso nel cuoio. Metro: rettangolo piatto.
  */
 fun Modifier.skin(
     shape: Shape,
@@ -118,6 +118,8 @@ fun Modifier.skin(
     elevation: Dp = 5.dp,
     stitched: Dp? = null,
 ): Modifier = when {
+    // Metro: niente angoli, ombre o fili. Pieno e quadrato; i campi hanno il bordo spesso dei TextBox di Windows Phone.
+    K.metro -> if (inset) background(color).border(2.dp, K.Muted) else background(color)
     !K.skeuo -> clip(shape).background(color).border(1.dp, border, shape)
     inset -> clip(shape)
         .background(Brush.verticalGradient(listOf(lerp(color, Color.Black, 0.55f), lerp(color, Color.Black, 0.3f))))

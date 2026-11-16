@@ -68,15 +68,19 @@ fun AppIcon(repo: AppsRepository, pkg: String, size: Dp, monochrome: Boolean = f
     }
 }
 
-/** Clic con un leggero affondamento a molla, come un tasto vero. */
+/** Clic con un leggero affondamento a molla, come un tasto vero. Metro: l'effetto tilt di Windows Phone, che inclina verso il dito. */
 @Composable
 fun Modifier.pressable(onLongClick: (() -> Unit)? = null, pressedScale: Float = 0.94f, onClick: () -> Unit): Modifier {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) pressedScale else 1f, Motion.press(), label = "press")
+    val tilt by animateFloatAsState(if (pressed && K.metro) 1f else 0f, tween(if (pressed) 90 else 220), label = "tilt")
     val haptic = LocalHapticFeedback.current
     return this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .graphicsLayer {
+            scaleX = scale; scaleY = scale
+            if (tilt > 0f) { rotationX = tilt * 9f; cameraDistance = 12f * density }
+        }
         .combinedClickable(
             interactionSource = source, indication = null,
             onLongClick = onLongClick?.let { { haptic.performHapticFeedback(HapticFeedbackType.LongPress); it() } },
@@ -94,7 +98,9 @@ fun PageHeader(eyebrow: String, title: String, trailing: @Composable () -> Unit 
         Column(Modifier.weight(1f)) {
             Eyebrow(eyebrow)
             Spacer(Modifier.height(6.dp))
-            Text(title, style = MaterialTheme.typography.headlineLarge, color = K.Paper)
+            // Metro: il titolo del pivot, minuscolo e sottile; se è lungo esce dal bordo invece di andare a capo.
+            if (K.metro) Text(title.lowercase(), style = MaterialTheme.typography.headlineLarge, color = K.Paper, maxLines = 1, overflow = TextOverflow.Clip)
+            else Text(title, style = MaterialTheme.typography.headlineLarge, color = K.Paper)
         }
         trailing()
     }
@@ -119,14 +125,16 @@ fun PillButton(
     icon: ImageVector? = null,
     onClick: () -> Unit,
 ) {
-    val bg = if (filled) K.Paper else K.SurfaceHigh
-    val fg = if (filled) K.Ink else K.Paper
+    val bg = if (filled) (if (K.metro) K.Shu else K.Paper) else K.SurfaceHigh
+    val fg = if (filled && !K.metro) K.Ink else K.Paper
     val alpha by animateFloatAsState(if (enabled) 1f else 0.35f, tween(300), label = "pill")
     Row(
         modifier
             .graphicsLayer { this.alpha = alpha }
             .then(
                 when {
+                    // Metro: bottone rettangolare, pieno d'accento oppure vuoto col bordo bianco.
+                    K.metro -> if (filled) Modifier.background(bg) else Modifier.border(2.dp, K.Paper)
                     !K.skeuo -> Modifier.clip(CircleShape).background(bg)
                     filled -> Modifier.brass()
                     else -> Modifier.skin(CircleShape, bg, elevation = 3.dp)
@@ -141,7 +149,7 @@ fun PillButton(
         // Sull'ottone le lettere sono incise: ombra chiara sotto invece che scura.
         val style = MaterialTheme.typography.labelLarge
         Text(
-            text, style = if (K.skeuo && filled) style.copy(shadow = androidx.compose.ui.graphics.Shadow(Color.White.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 1.5f), 0f)) else style,
+            if (K.metro) text.lowercase() else text, style = if (K.skeuo && filled) style.copy(shadow = androidx.compose.ui.graphics.Shadow(Color.White.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 1.5f), 0f)) else style,
             color = fg, textAlign = TextAlign.Center,
         )
     }
@@ -150,7 +158,8 @@ fun PillButton(
 @Composable
 fun IconCircle(icon: ImageVector, description: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        modifier.size(44.dp).skin(CircleShape, elevation = 3.dp).pressable(onClick = onClick),
+        // Metro: il cerchio col bordo bianco dei pulsanti della app bar.
+        modifier.size(44.dp).then(if (K.metro) Modifier.border(2.dp, K.Paper, CircleShape) else Modifier.skin(CircleShape, elevation = 3.dp)).pressable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, description, Modifier.size(20.dp), tint = K.Paper) }
 }

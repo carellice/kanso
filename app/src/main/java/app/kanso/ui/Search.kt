@@ -223,9 +223,9 @@ private fun ResultRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(42.dp).skin(CircleShape, if (accent) K.Shu.copy(alpha = if (K.skeuo) 0.5f else 0.18f) else K.SurfaceHigh, border = androidx.compose.ui.graphics.Color.Transparent, elevation = 3.dp),
+            Modifier.size(42.dp).skin(CircleShape, if (accent) K.Shu.copy(alpha = if (K.metro) 1f else if (K.skeuo) 0.5f else 0.18f) else K.SurfaceHigh, border = androidx.compose.ui.graphics.Color.Transparent, elevation = 3.dp),
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, Modifier.size(20.dp), tint = if (accent) K.Shu else K.Paper) }
+        ) { Icon(icon, null, Modifier.size(20.dp), tint = if (accent && !K.metro) K.Shu else K.Paper) }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = K.Paper, maxLines = 1, overflow = TextOverflow.Ellipsis)
