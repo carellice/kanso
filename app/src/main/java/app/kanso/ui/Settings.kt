@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.kanso.BuildConfig
 import app.kanso.KansoViewModel
 import app.kanso.data.LockMode
@@ -91,7 +92,7 @@ fun SettingsSheet(vm: KansoViewModel) {
             }
 
             Section("Stile") {
-                Segmented(listOf("Kanso", "Skeuo", "Modern UI", "Nothing"), p.style.ordinal) { p.saveStyle(app.kanso.data.Style.entries[it]) }
+                Segmented(listOf("Kanso", "Skeuo", "Modern UI", "Nothing", "Dueffe"), p.style.ordinal) { p.saveStyle(app.kanso.data.Style.entries[it]) }
                 Spacer(Modifier.height(8.dp))
                 Text(
                     when (p.style) {
@@ -99,6 +100,7 @@ fun SettingsSheet(vm: KansoViewModel) {
                         app.kanso.data.Style.SKEUO -> "Cuoio cucito, ottone e rilievi, come gli oggetti veri."
                         app.kanso.data.Style.METRO -> "Nero pieno, riquadri vivi e testo sottile, come Windows Phone."
                         app.kanso.data.Style.NOTHING -> "Nero OLED, griglia di punti, cifre a matrice e un solo rosso segnale."
+                        app.kanso.data.Style.DUEFFE -> "Fondo quasi nero, superfici calde, testo avorio e un solo accento oro."
                     },
                     style = MaterialTheme.typography.bodyMedium, color = K.Muted,
                 )
@@ -280,8 +282,8 @@ internal fun Row_(title: String, subtitle: String, done: Boolean? = null, onClic
 @Composable
 private fun Toggle(title: String, subtitle: String, value: Boolean, onChange: (Boolean) -> Unit) {
     val knob by animateDpAsState(if (value) (if (K.skeuo) 24.dp else 22.dp) else 2.dp, Motion.press(), label = "knob")
-    val track by animateColorAsState(if (value) K.Paper else K.SurfaceHigher, tween(250), label = "track")
-    val dot by animateColorAsState(if (value) K.Ink else K.Muted, tween(250), label = "dot")
+    val track by animateColorAsState(if (value) (if (K.dueffe) K.Shu else K.Paper) else K.SurfaceHigher, tween(250), label = "track")
+    val dot by animateColorAsState(if (value) (if (K.dueffe) DF.OnPrimary else K.Ink) else K.Muted, tween(250), label = "dot")
     Row(
         Modifier.fillMaxWidth().pressable(pressedScale = 0.98f) { onChange(!value) }.padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -323,18 +325,21 @@ private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> U
             when {
                 K.metro -> Modifier.background(K.Shu)
                 K.skeuo -> Modifier.brass()
+                K.dueffe -> Modifier.gold()
                 else -> Modifier.clip(CircleShape).background(K.Paper)
             },
         ))
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, o ->
-                val color by animateColorAsState(if (i == selected && !K.metro) K.Ink else K.Paper, tween(250), label = "segText")
+                val color by animateColorAsState(if (i == selected && !K.metro) (if (K.dueffe) DF.OnPrimary else K.Ink) else K.Paper, tween(250), label = "segText")
                 Box(Modifier.weight(1f).fillMaxHeight().clip(CircleShape).pressable(pressedScale = 0.96f) { onSelect(i) }, contentAlignment = Alignment.Center) {
                     Text(
                         when { K.metro -> o.lowercase(); K.nothing -> o.uppercase(); else -> o },
                         // Con quattro voci il testo pieno non ci sta: si passa alla misura delle etichette.
                         style = if (options.size > 3) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
-                        color = color, maxLines = 1,
+                        color = color, maxLines = 1, softWrap = false,
+                        // Con cinque voci una può non entrare: si rimpicciolisce invece di essere tagliata.
+                        autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = MaterialTheme.typography.labelMedium.fontSize, stepSize = 0.5.sp),
                     )
                 }
             }

@@ -105,6 +105,11 @@ fun Modifier.backdrop(cloth: Boolean = false, stitched: Boolean = !cloth): Modif
             y += step
         }
     }
+    // Dueffe: fondo quasi nero con due nebulose calde ferme; quelle che derivano stanno nell'Aurora della Home.
+    K.dueffe -> background(K.Ink).drawBehind {
+        drawRect(Brush.radialGradient(listOf(Color(0x2EFFB800), Color.Transparent), Offset(size.width * 0.15f, size.height * 0.05f), size.maxDimension * 0.6f))
+        drawRect(Brush.radialGradient(listOf(Color(0x1FFFD84D), Color.Transparent), Offset(size.width * 0.9f, size.height * 0.85f), size.maxDimension * 0.55f))
+    }
     !K.skeuo -> background(K.Ink)
     else -> drawBehind {
         if (cloth) {
@@ -140,6 +145,9 @@ fun Modifier.skin(
     K.nothing -> (if (shape == CircleShape) shape else NothingCard).let { s ->
         clip(s).background(if (inset) K.Ink else color).border(1.dp, if (inset) K.SurfaceHigher else border, s)
     }
+    // Dueffe: nessuna ombra; la profondità viene dal gradiente verticale e dal filo dorato. I campi incassati: fondo e linea forte.
+    K.dueffe -> if (inset) clip(shape).background(K.Ink).border(1.dp, DF.LineStrong, shape)
+    else clip(shape).background(Brush.verticalGradient(listOf(color, lerp(color, K.Ink, 0.45f)))).border(1.dp, border, shape)
     !K.skeuo -> clip(shape).background(color).border(1.dp, border, shape)
     inset -> clip(shape)
         .background(Brush.verticalGradient(listOf(lerp(color, Color.Black, 0.55f), lerp(color, Color.Black, 0.3f))))
@@ -161,6 +169,10 @@ fun Modifier.skin(
         }
         .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.26f), Color.White.copy(alpha = 0.04f), Color.Black.copy(alpha = 0.5f))), shape)
 }
+
+/** Dueffe: oro pieno a 135°, dal primario a un misto col primario forte. */
+fun Modifier.gold(shape: Shape = CircleShape): Modifier =
+    clip(shape).background(Brush.linearGradient(listOf(K.Shu, lerp(K.Shu, DF.PrimaryStrong, 0.35f))))
 
 /** Bottone d'ottone lucido, per le azioni principali. */
 fun Modifier.brass(shape: Shape = CircleShape): Modifier =

@@ -258,7 +258,7 @@ fun SummaryCard(vm: KansoViewModel) {
                         }
                     }
                     is SummaryState.Failed -> Column {
-                        Text(state.message, style = MaterialTheme.typography.bodyMedium, color = K.Shu)
+                        Text(state.message, style = MaterialTheme.typography.bodyMedium, color = K.Alert)
                         Spacer(Modifier.height(14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             PillButton("Riprova") { vm.summarize() }

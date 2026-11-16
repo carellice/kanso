@@ -238,7 +238,7 @@ fun PinPad(title: String, subtitle: String = "", check: (String) -> Boolean, onD
             Text(it, style = MaterialTheme.typography.headlineMedium, color = K.Paper)
         }
         Spacer(Modifier.height(6.dp))
-        Text(if (error) "PIN errato, riprova" else subtitle, style = MaterialTheme.typography.bodyMedium, color = if (error) K.Shu else K.Muted)
+        Text(if (error) "PIN errato, riprova" else subtitle, style = MaterialTheme.typography.bodyMedium, color = if (error) K.Alert else K.Muted)
         Spacer(Modifier.height(28.dp))
         Row(Modifier.graphicsLayer { translationX = shake.value }, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
             repeat(4) { i ->

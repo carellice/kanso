@@ -7,8 +7,8 @@ import androidx.compose.runtime.setValue
 import java.security.MessageDigest
 import java.security.SecureRandom
 
-/** Stile grafico: Kanso (piatto), skeuomorfismo, Modern UI (Windows Phone), Nothing. */
-enum class Style { KANSO, SKEUO, METRO, NOTHING }
+/** Stile grafico: Kanso (piatto), skeuomorfismo, Modern UI (Windows Phone), Nothing, Dueffe. */
+enum class Style { KANSO, SKEUO, METRO, NOTHING, DUEFFE }
 
 enum class LockMode(val title: String, val hint: String) {
     NONE("Nessuno", "Impostazioni e Home sempre modificabili"),

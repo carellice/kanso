@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInRoot
@@ -90,7 +91,7 @@ fun Modifier.pressable(onLongClick: (() -> Unit)? = null, pressedScale: Float = 
 
 @Composable
 fun Eyebrow(text: String, modifier: Modifier = Modifier) =
-    Text(text.uppercase(), modifier, style = MaterialTheme.typography.labelSmall, color = K.Muted)
+    Text(text.uppercase(), modifier, style = MaterialTheme.typography.labelSmall, color = if (K.dueffe) K.Shu else K.Muted)
 
 @Composable
 fun PageHeader(eyebrow: String, title: String, trailing: @Composable () -> Unit = {}) {
@@ -100,10 +101,34 @@ fun PageHeader(eyebrow: String, title: String, trailing: @Composable () -> Unit 
             Spacer(Modifier.height(6.dp))
             // Metro: il titolo del pivot, minuscolo e sottile; se è lungo esce dal bordo invece di andare a capo.
             if (K.metro) Text(title.lowercase(), style = MaterialTheme.typography.headlineLarge, color = K.Paper, maxLines = 1, overflow = TextOverflow.Clip)
+            else if (K.dueffe) GoldUnderlined(title)
             else Text(title, style = MaterialTheme.typography.headlineLarge, color = K.Paper)
         }
         trailing()
     }
+}
+
+/** Dueffe: il titolo con la sottolineatura disegnata a mano in oro forte, che si traccia all'entrata. */
+@Composable
+private fun GoldUnderlined(title: String) {
+    val draw = remember(title) { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(title) { draw.animateTo(1f, tween(720, delayMillis = 260, easing = Motion.Reveal)) }
+    Text(
+        title, style = MaterialTheme.typography.headlineLarge, color = K.Paper,
+        modifier = Modifier.padding(bottom = 6.dp).drawBehind {
+            val w = 2.6.dp.toPx()
+            val y = size.height + 3.dp.toPx()
+            val end = size.width * 0.62f
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, y)
+                quadraticTo(end * 0.5f, y + 4.dp.toPx(), end, y - 2.dp.toPx())
+            }
+            val measure = androidx.compose.ui.graphics.PathMeasure().apply { setPath(path, false) }
+            val part = androidx.compose.ui.graphics.Path()
+            measure.getSegment(0f, measure.length * draw.value, part, true)
+            drawPath(part, DF.PrimaryStrong, style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+        },
+    )
 }
 
 @Composable
@@ -111,8 +136,8 @@ fun KCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(
         modifier
             .fillMaxWidth()
-            .skin(RoundedCornerShape(28.dp), stitched = 28.dp)
-            .padding(22.dp),
+            .skin(RoundedCornerShape(if (K.dueffe) 26.dp else 28.dp), color = if (K.dueffe) K.SurfaceHigh else K.Surface, stitched = 28.dp)
+            .padding(if (K.dueffe) 18.dp else 22.dp),
     ) { content() }
 }
 
@@ -125,8 +150,8 @@ fun PillButton(
     icon: ImageVector? = null,
     onClick: () -> Unit,
 ) {
-    val bg = if (filled) (if (K.metro) K.Shu else K.Paper) else if (K.nothing) Color.Transparent else K.SurfaceHigh
-    val fg = if (filled && !K.metro) K.Ink else K.Paper
+    val bg = if (filled) (if (K.metro) K.Shu else K.Paper) else if (K.nothing) Color.Transparent else if (K.dueffe) K.Surface else K.SurfaceHigh
+    val fg = when { K.dueffe && filled -> DF.OnPrimary; filled && !K.metro -> K.Ink; else -> K.Paper }
     val alpha by animateFloatAsState(if (enabled) 1f else 0.35f, tween(300), label = "pill")
     Row(
         modifier
@@ -137,13 +162,15 @@ fun PillButton(
                     K.metro -> if (filled) Modifier.background(bg) else Modifier.border(2.dp, K.Paper)
                     // Nothing: primario pillola bianca, secondario solo il contorno.
                     K.nothing -> if (filled) Modifier.clip(CircleShape).background(bg) else Modifier.border(1.dp, K.SurfaceHigher, CircleShape)
+                    // Dueffe: tasto raggio 18, oro pieno oppure superficie con la linea forte.
+                    K.dueffe -> RoundedCornerShape(18.dp).let { s -> if (filled) Modifier.gold(s) else Modifier.clip(s).background(bg).border(1.dp, DF.LineStrong, s) }
                     !K.skeuo -> Modifier.clip(CircleShape).background(bg)
                     filled -> Modifier.brass()
                     else -> Modifier.skin(CircleShape, bg, elevation = 3.dp)
                 },
             )
-            .then(if (enabled) Modifier.pressable(onClick = onClick) else Modifier)
-            .padding(horizontal = 22.dp, vertical = 15.dp),
+            .then(if (enabled) Modifier.pressable(pressedScale = if (K.dueffe) 0.95f else 0.94f, onClick = onClick) else Modifier)
+            .padding(horizontal = if (K.dueffe) 18.dp else 22.dp, vertical = if (K.dueffe) 14.dp else 15.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -132,7 +132,8 @@ fun Onboarding(vm: KansoViewModel) {
                     val d = ((pager.currentPage - i) + pager.currentPageOffsetFraction).absoluteValue.coerceIn(0f, 1f)
                     Box(
                         Modifier.height(5.dp).width(lerp(22f, 5f, d).dp).clip(CircleShape)
-                            .background(K.Paper.copy(alpha = lerp(0.9f, 0.25f, d))),
+                            // Dueffe: la pagina attuale in oro.
+                            .background(if (K.dueffe) androidx.compose.ui.graphics.lerp(K.Shu, K.Paper.copy(alpha = 0.22f), d) else K.Paper.copy(alpha = lerp(0.9f, 0.25f, d))),
                     )
                 }
             }

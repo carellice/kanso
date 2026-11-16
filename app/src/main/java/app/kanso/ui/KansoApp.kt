@@ -38,6 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -193,6 +195,7 @@ private fun Modifier.pageTransition(pager: PagerState, page: Int) = graphicsLaye
 @Composable
 private fun Glow(pager: PagerState) {
     if (K.metro || K.nothing) return // Metro e Nothing: nero pieno, nessun alone.
+    if (K.dueffe) return Aurora(pager)
     Box(
         Modifier.fillMaxSize().drawBehind {
             val pos = pager.currentPage + pager.currentPageOffsetFraction // 0..2
@@ -215,6 +218,34 @@ private fun Glow(pager: PagerState) {
     )
 }
 
+/** Dueffe: nebulose oro e ambra che derivano piano, e pulviscolo avorio che sale e scintilla. Segue lo scorrimento. */
+@Composable
+private fun Aurora(pager: PagerState) {
+    val t by androidx.compose.animation.core.rememberInfiniteTransition(label = "aurora").animateFloat(
+        0f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(32_000, easing = androidx.compose.animation.core.LinearEasing)), label = "drift",
+    )
+    val dust = remember { val r = kotlin.random.Random(9); List(34) { floatArrayOf(r.nextFloat(), r.nextFloat(), r.nextFloat(), 0.6f + r.nextFloat() * 1.2f) } }
+    Box(
+        Modifier.fillMaxSize().drawBehind {
+            val a = t * 2f * Math.PI.toFloat()
+            val pos = pager.currentPage + pager.currentPageOffsetFraction
+            val shift = -pos * size.width * 0.12f
+            fun nebula(color: Color, alpha: Float, cx: Float, cy: Float, r: Float) {
+                val c = Offset(cx + shift, cy)
+                drawCircle(Brush.radialGradient(listOf(color.copy(alpha = alpha), color.copy(alpha = 0f)), c, r), r, c)
+            }
+            nebula(Color(0xFFFFD84D), 0.18f, size.width * (0.25f + 0.08f * kotlin.math.sin(a)), size.height * (0.12f + 0.04f * kotlin.math.cos(a)), size.width * 0.85f)
+            nebula(Color(0xFFFFB800), 0.14f, size.width * (0.95f + 0.07f * kotlin.math.cos(a)), size.height * (0.55f + 0.05f * kotlin.math.sin(a)), size.width * 0.75f)
+            nebula(Color(0xFFFFF0AD), 0.10f, size.width * (0.3f + 0.1f * kotlin.math.sin(a + 2f)), size.height * (0.95f + 0.03f * kotlin.math.cos(a)), size.width * 0.9f)
+            dust.forEach { (x, y, phase, r) ->
+                val rise = ((y - t * 3f) % 1f + 1f) % 1f
+                val twinkle = (kotlin.math.sin((t * 18f + phase) * 2f * Math.PI.toFloat()) + 1f) / 2f
+                drawCircle(Color(0xFFFFFAF0).copy(alpha = 0.10f + 0.35f * twinkle), r.dp.toPx(), Offset(x * size.width + shift * 0.5f, rise * size.height))
+            }
+        },
+    )
+}
+
 @Composable
 private fun PageDots(pager: PagerState, modifier: Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -227,6 +258,10 @@ private fun PageDots(pager: PagerState, modifier: Modifier) {
             ) else if (K.nothing) Box(
                 // Nothing: punti della matrice; quello della pagina attuale si accende di bianco.
                 Modifier.size(6.dp).clip(CircleShape).background(androidx.compose.ui.graphics.lerp(K.Paper, K.SurfaceHigher, d)),
+            ) else if (K.dueffe) Box(
+                // Dueffe: la pagina attuale è una pillola d'oro, le altre punti avorio tenui.
+                Modifier.height(6.dp).width(lerp(22f, 6f, d).dp).clip(CircleShape)
+                    .background(androidx.compose.ui.graphics.lerp(K.Shu, K.Paper.copy(alpha = 0.22f), d)),
             ) else if (K.metro) Box(
                 // Metro: tasselli quadrati, quello della pagina attuale nel colore d'accento.
                 Modifier.size(lerp(9f, 6f, d).dp).background(androidx.compose.ui.graphics.lerp(K.Shu, K.Paper.copy(alpha = 0.3f), d)),
