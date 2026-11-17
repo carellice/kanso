@@ -302,9 +302,10 @@ fun AppPicker(vm: KansoViewModel) {
     val tiles = (if (work) vm.workTiles else vm.tiles).toSet()
     val list = remember(vm.apps, query, tiles) {
         val base = vm.apps.filter { it.pkg !in tiles }
-        if (query.isBlank()) base else app.kanso.data.matchApps(base, query) + base.filter {
+        // distinct() su tutta la lista: un'app presente in entrambe le parti duplicherebbe la chiave e farebbe crashare l'elenco.
+        if (query.isBlank()) base else (app.kanso.data.matchApps(base, query) + base.filter {
             app.kanso.data.normalize(it.label).contains(app.kanso.data.normalize(query.trim()))
-        }.distinct()
+        }).distinct()
     }
     Column(Modifier.fillMaxSize().backdrop(cloth = true).statusBarsPadding()) {
         Row(Modifier.padding(start = 24.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
