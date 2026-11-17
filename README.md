@@ -20,7 +20,7 @@ Launcher Android open source che mette insieme semplicità e benessere digitale.
 | **Consapevolezza**: agenda dei prossimi 7 giorni, tempo schermo e sblocchi di oggi, grafico per ora, app più usate | **Home**: orologio facoltativo (spento di default), poi solo una griglia di riquadri tutti uguali (Telefono, Messaggi, Fotocamera, Galleria, Mappe di default) e la barra di ricerca | **Libreria**: tutte le altre app raggruppate per categoria in automatico |
 
 - **Ricerca universale**: app, contatti, indirizzi (aperti in Google Maps), siti e ricerca web. Il risultato evidenziato si apre con Invio.
-- **Pulsanti rapidi** in alto nella Home: torcia e suoneria/vibrazione/silenzioso, ognuno nascondibile dalle impostazioni.
+- **Pulsanti rapidi** in alto nella Home: torcia e suoneria/vibrazione (senza toccare il Non disturbare), ognuno nascondibile dalle impostazioni.
 - **App di lavoro**: in orario di lavoro la Home mostra il controllo Personale | Lavoro. Orario fisso (giorni e ore) oppure turni impostati settimana per settimana, anche di notte. Dalla Home si prendono ferie o un permesso, e il controllo sparisce finché dura. In orario le app di lavoro si aprono senza attrito.
 - **Attrito consapevole**: prima di aprire un'app fuori dalla Home compare "Vuoi davvero aprire…?" con un respiro guidato. Social, video, giochi e shopping aspettano la durata intera, le altre app la metà.
 - **Blocco**: impostazioni e modifica della Home protette da PIN (salvato come hash SHA-256 con sale) o dal gesto "tieni premuto 3 secondi".

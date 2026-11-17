@@ -115,7 +115,7 @@ fun SettingsSheet(vm: KansoViewModel) {
                 Divider()
                 Toggle("Pulsante torcia", "In alto nella Home, accanto all'orologio", p.showTorch, p::saveShowTorch)
                 Divider()
-                Toggle("Pulsante suoneria", "Suoneria, vibrazione o silenzioso con un tocco", p.showRinger, p::saveShowRinger)
+                Toggle("Pulsante suoneria", "Suoneria o vibrazione con un tocco", p.showRinger, p::saveShowRinger)
                 Divider()
                 Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
             }

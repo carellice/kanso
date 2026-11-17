@@ -54,7 +54,7 @@ fun TorchButton() {
     ) { runCatching { cm.setTorchMode(id, !on) } }
 }
 
-/** Suoneria, vibrazione, silenzioso: ogni tocco passa alla modalità successiva. */
+/** Suoneria e vibrazione: ogni tocco passa all'altra. Dal silenzioso si torna alla suoneria. */
 @Composable
 fun RingerButton(vm: KansoViewModel) {
     val ctx = LocalContext.current
@@ -73,13 +73,11 @@ fun RingerButton(vm: KansoViewModel) {
         else -> Icons.Rounded.NotificationsActive to "Suoneria"
     }
     IconCircle(icon, "$label: tocca per cambiare", active = mode != AudioManager.RINGER_MODE_NORMAL) {
-        val next = when (mode) {
-            AudioManager.RINGER_MODE_NORMAL -> AudioManager.RINGER_MODE_VIBRATE
-            AudioManager.RINGER_MODE_VIBRATE -> AudioManager.RINGER_MODE_SILENT
-            else -> AudioManager.RINGER_MODE_NORMAL
-        }
-        // Entrare o uscire dal silenzioso tocca il "Non disturbare": Android chiede un permesso apposito.
-        val dnd = next == AudioManager.RINGER_MODE_SILENT || mode == AudioManager.RINGER_MODE_SILENT
+        // Niente silenzioso: chiesto da un'app, Android accende sempre anche il "Non disturbare".
+        // Il silenzioso vero si sceglie dal pannello del volume di sistema.
+        val next = if (mode == AudioManager.RINGER_MODE_NORMAL) AudioManager.RINGER_MODE_VIBRATE else AudioManager.RINGER_MODE_NORMAL
+        // Uscire dal silenzioso tocca il "Non disturbare": Android chiede un permesso apposito.
+        val dnd = mode == AudioManager.RINGER_MODE_SILENT
         val allowed = ctx.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
         if (dnd && !allowed) {
             vm.toast("Consenti a Kanso l'accesso a \"Non disturbare\"")
