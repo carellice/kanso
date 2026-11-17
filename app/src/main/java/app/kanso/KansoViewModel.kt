@@ -16,6 +16,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -32,6 +33,12 @@ import app.kanso.data.Chrono
 import app.kanso.data.Prefs
 import app.kanso.data.Summarizer
 import app.kanso.data.UsageRepository
+import app.kanso.data.WorkMode
+import app.kanso.data.shiftEnd
+import app.kanso.data.shiftOn
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -133,9 +140,40 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     fun launchPrivate(app: PrivateApp) { if (privateSpace.launch(app)) away = true else toast("App non disponibile") }
 
     val tiles: List<String> get() = (prefs.tiles ?: defaultTiles).filter { pkg -> apps.isEmpty() || apps.any { it.pkg == pkg } }
+    val workTiles: List<String> get() = prefs.workTiles.filter { pkg -> apps.isEmpty() || apps.any { it.pkg == pkg } }
+
+    var now by mutableLongStateOf(System.currentTimeMillis()); private set
+    // Allo scoccare di ogni minuto: la scheda Lavoro compare e scompare da sola.
+    init { viewModelScope.launch { while (true) { kotlinx.coroutines.delay(60_000 - System.currentTimeMillis() % 60_000); now = System.currentTimeMillis() } } }
+    private fun local(millis: Long) = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault())
+    fun millisOf(t: LocalDateTime) = t.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    fun minutesOf(millis: Long) = local(millis).let { it.hour * 60 + it.minute }
+    fun clock(millis: Long) = app.kanso.data.hhmm(minutesOf(millis))
+    /** Fine del turno in corso, null se ora non è orario di lavoro. */
+    val shiftEndsAt: LocalDateTime? get() = with(prefs) { shiftEnd(local(now)) { shiftOn(it, workMode, workDays, workFixed, shifts) } }
+    /** In permesso o in ferie in questo momento. */
+    val paused get() = now in prefs.pauseFrom until prefs.pauseTo
+    val atWork get() = shiftEndsAt != null && !paused
+    /** La scheda scelta nel controllo Personale | Lavoro. */
+    var workTab by mutableStateOf(false)
+    /** Il controllo compare in orario di lavoro, e mentre si modifica la Home per scegliere le app di lavoro. */
+    val workSwitch get() = atWork || (editing && prefs.workMode != WorkMode.NONE)
+    val showingWork get() = workTab && workSwitch
+
+    /** Ferie: la scheda Lavoro sparisce fino alla fine del turno di oggi. */
+    fun takeDayOff() { shiftEndsAt?.let { prefs.savePause(now, millisOf(it)) } }
+    /** Permesso di oggi da [from] a [to] (minuti dalla mezzanotte); se [to] viene prima, finisce domani. */
+    fun takeLeave(from: Int, to: Int) {
+        val day = local(now).toLocalDate().atStartOfDay()
+        prefs.savePause(millisOf(day.plusMinutes(from.toLong())), millisOf(day.plusMinutes(to.toLong() + if (to <= from) 1440 else 0)))
+    }
+    fun cancelPause() = prefs.savePause(0, 0)
+    /** Permesso già fissato per più tardi, da mostrare e annullare. */
+    val pauseLater get() = prefs.pauseFrom > now
     val byPkg: Map<String, AppEntry> get() = apps.associateBy { it.pkg }
 
     fun refresh() = viewModelScope.launch {
+        now = System.currentTimeMillis()
         apps = appsRepo.load().map { a -> prefs.categories[a.pkg]?.let { a.copy(category = it) } ?: a }
         if (defaultTiles.isEmpty()) defaultTiles = appsRepo.essentials()
         refreshPrivate()
@@ -215,9 +253,12 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         homeSignal++
     }
 
+    /** Le app della Home, e in orario di lavoro quelle di lavoro, si aprono senza attrito. */
+    fun skipsFriction(pkg: String) = pkg in tiles || (atWork && pkg in workTiles)
+
     /** Le app della Home si aprono subito; le altre passano dall'attrito consapevole. */
     fun open(app: AppEntry, options: Bundle? = null) {
-        if (prefs.friction && app.pkg !in tiles) { friction = app; frictionOptions = options } else launch(app.pkg, options)
+        if (prefs.friction && !skipsFriction(app.pkg)) { friction = app; frictionOptions = options } else launch(app.pkg, options)
     }
 
     fun isDistracting(app: AppEntry) = app.category in DistractingCategories
@@ -292,8 +333,11 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         }.onFailure { toast("Apri le notifiche dall'alto dello schermo") }
     }
 
-    fun addTile(pkg: String) { if (pkg !in tiles) prefs.saveTiles(tiles + pkg) }
-    fun removeTile(pkg: String) = prefs.saveTiles(tiles - pkg)
+    fun addTile(pkg: String, work: Boolean = false) {
+        if (work) { if (pkg !in workTiles) prefs.saveWorkTiles(workTiles + pkg) } else if (pkg !in tiles) prefs.saveTiles(tiles + pkg)
+    }
+    fun removeTile(pkg: String, work: Boolean = false) = if (work) prefs.saveWorkTiles(workTiles - pkg) else prefs.saveTiles(tiles - pkg)
+    fun saveOrder(list: List<String>, work: Boolean) = if (work) prefs.saveWorkTiles(list) else prefs.saveTiles(list)
     fun moveTile(pkg: String, by: Int) {
         val list = tiles.toMutableList()
         val i = list.indexOf(pkg)

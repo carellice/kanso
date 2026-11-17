@@ -172,7 +172,21 @@ fun HomePage(vm: KansoViewModel) {
             exit = fadeOut(tween(150)) + shrinkVertically(Motion.soft()),
         ) { AgendaPeek(vm, Modifier.padding(top = 14.dp)) }
 
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { TileGrid(vm) }
+        WorkBar(vm)
+
+        // Personale e Lavoro scorrono di lato, nella direzione del controllo.
+        AnimatedContent(
+            vm.showingWork,
+            transitionSpec = {
+                val dir = if (targetState) 1 else -1
+                (fadeIn(tween(320)) + androidx.compose.animation.slideInHorizontally(tween(420, easing = Motion.Calm)) { it / 3 * dir }) togetherWith
+                    (fadeOut(tween(200)) + androidx.compose.animation.slideOutHorizontally(tween(320, easing = Motion.Calm)) { -it / 3 * dir })
+            },
+            label = "workTab",
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+        ) { work ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TileGrid(vm, work) }
+        }
 
         SearchBar(Modifier.padding(bottom = 40.dp)) { vm.searchOpen = true }
     }
@@ -244,11 +258,11 @@ private fun ChronoChip(c: ChronoInfo, now: Long, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TileGrid(vm: KansoViewModel) {
+private fun TileGrid(vm: KansoViewModel, work: Boolean) {
     val state = rememberLazyGridState()
     // Copia locale durante il trascinamento: si salva solo al rilascio.
     val order = remember { mutableStateListOf<String>() }
-    val tiles = vm.tiles
+    val tiles = if (work) vm.workTiles else vm.tiles
     var dragging by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
     LaunchedEffect(tiles) { if (dragging == null) { order.clear(); order.addAll(tiles) } }
@@ -256,6 +270,14 @@ private fun TileGrid(vm: KansoViewModel) {
     fun itemAt(pos: Offset): LazyGridItemInfo? = state.layoutInfo.visibleItemsInfo.firstOrNull {
         pos.x >= it.offset.x && pos.x <= it.offset.x + it.size.width && pos.y >= it.offset.y && pos.y <= it.offset.y + it.size.height
     }?.takeIf { it.key is String && it.key != ADD_KEY }
+
+    if (work && order.isEmpty() && !vm.editing) {
+        Text(
+            "Nessuna app di lavoro.\nTieni premuto per aggiungerne.", style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        return
+    }
 
     // Colonne e grandezza si adattano allo spazio: vince la griglia (da 2 a 5 colonne) coi riquadri più grandi che ci stanno tutti.
     BoxWithConstraints(Modifier.fillMaxSize().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
@@ -304,7 +326,7 @@ private fun TileGrid(vm: KansoViewModel) {
                             }
                         }
                     },
-                    onDragEnd = { dragging = null; dragOffset = Offset.Zero; vm.prefs.saveTiles(order.toList()) },
+                    onDragEnd = { dragging = null; dragOffset = Offset.Zero; vm.saveOrder(order.toList(), work) },
                     onDragCancel = { dragging = null; dragOffset = Offset.Zero },
                 )
             },
@@ -326,7 +348,7 @@ private fun TileGrid(vm: KansoViewModel) {
                     vm, pkg, app?.label ?: "", index, editing = vm.editing, iconSize = iconSize, compact = compact,
                     onClick = { if (!vm.editing) app?.let { vm.launch(it.pkg, from.options()) } },
                     onLongClick = { if (!vm.editing) vm.guarded { vm.editing = true } },
-                    onRemove = { vm.removeTile(pkg) },
+                    onRemove = { vm.removeTile(pkg, work) },
                 )
             }
         }

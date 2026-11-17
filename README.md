@@ -21,6 +21,7 @@ Launcher Android open source che mette insieme semplicità e benessere digitale.
 
 - **Ricerca universale**: app, contatti, indirizzi (aperti in Google Maps), siti e ricerca web. Il risultato evidenziato si apre con Invio.
 - **Pulsanti rapidi** in alto nella Home: torcia e suoneria/vibrazione/silenzioso, ognuno nascondibile dalle impostazioni.
+- **App di lavoro**: in orario di lavoro la Home mostra il controllo Personale | Lavoro. Orario fisso (giorni e ore) oppure turni impostati settimana per settimana, anche di notte. Dalla Home si prendono ferie o un permesso, e il controllo sparisce finché dura. In orario le app di lavoro si aprono senza attrito.
 - **Attrito consapevole**: prima di aprire un'app fuori dalla Home compare "Vuoi davvero aprire…?" con un respiro guidato. Social, video, giochi e shopping aspettano la durata intera, le altre app la metà.
 - **Blocco**: impostazioni e modifica della Home protette da PIN (salvato come hash SHA-256 con sale) o dal gesto "tieni premuto 3 secondi".
 - **Spazio privato** (Android 15): con Kanso come Home, in fondo alla Libreria compare una sezione apposita con le sue app quando è sbloccato.

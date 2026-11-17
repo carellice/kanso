@@ -120,6 +120,8 @@ fun SettingsSheet(vm: KansoViewModel) {
                 Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
             }
 
+            Section("Lavoro") { WorkSettings(vm) }
+
             Section("Attrito consapevole") {
                 Toggle("Chiedi prima di aprire", "Per le app che non sono nella Home", p.friction, p::saveFriction)
                 AnimatedVisibility(p.friction) {
@@ -319,7 +321,7 @@ private fun Toggle(title: String, subtitle: String, value: Boolean, onChange: (B
 
 /** Controllo a segmenti con un indicatore che scivola sotto la scelta. */
 @Composable
-private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+internal fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     BoxWithConstraints(
         Modifier.fillMaxWidth().height(46.dp).skin(CircleShape, K.SurfaceHigh, inset = true).padding(4.dp),
     ) {

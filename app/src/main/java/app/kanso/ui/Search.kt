@@ -205,7 +205,7 @@ private fun AppRow(vm: KansoViewModel, app: AppEntry, modifier: Modifier) {
             Text(app.label, style = MaterialTheme.typography.titleMedium, color = K.Paper)
             Text(app.category.title, style = MaterialTheme.typography.labelMedium, color = K.Muted)
         }
-        if (app.pkg !in vm.tiles && vm.prefs.friction && vm.isDistracting(app)) {
+        if (!vm.skipsFriction(app.pkg) && vm.prefs.friction && vm.isDistracting(app)) {
             Box(Modifier.size(6.dp).clip(CircleShape).background(K.Shu))
         }
         if (app.pkg !in vm.tiles) {

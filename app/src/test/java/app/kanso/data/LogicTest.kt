@@ -34,4 +34,18 @@ class LogicTest {
         assertEquals("a", u.top.first().first)
         assertEquals(3, u.unlocks)
     }
+
+    @Test fun workShifts() {
+        val mon = java.time.LocalDate.of(2026, 11, 16)
+        val fixed = { d: java.time.LocalDate -> shiftOn(d, WorkMode.FIXED, 0b0011111, Shift(540, 1080), emptyMap()) }
+        assertEquals(mon.atTime(18, 0), shiftEnd(mon.atTime(9, 0), fixed))
+        assertEquals(null, shiftEnd(mon.atTime(18, 0), fixed))
+        assertEquals(null, shiftEnd(mon.plusDays(5).atTime(10, 0), fixed)) // sabato
+        // Turno di notte: 22-6 di lunedì vale ancora martedì alle 3.
+        val night = mapOf(mon.toEpochDay() to Shift(22 * 60, 6 * 60))
+        val shifts = { d: java.time.LocalDate -> shiftOn(d, WorkMode.SHIFTS, 0, Shift(0, 0), night) }
+        assertEquals(mon.plusDays(1).atTime(6, 0), shiftEnd(mon.plusDays(1).atTime(3, 0), shifts))
+        assertEquals(null, shiftEnd(mon.atTime(21, 59), shifts))
+        assertEquals(null, shiftEnd(mon.atTime(10, 0)) { shiftOn(it, WorkMode.NONE, 0b1111111, Shift(0, 1440), emptyMap()) })
+    }
 }

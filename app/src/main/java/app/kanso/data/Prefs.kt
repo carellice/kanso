@@ -47,7 +47,34 @@ class Prefs(context: Context) {
         }.toMap(),
     ); private set
 
+    /** App della scheda Lavoro in Home. */
+    var workTiles by mutableStateOf(sp.getString("workTiles", "")!!.split(',').filter { it.isNotBlank() }); private set
+    var workMode by mutableStateOf(runCatching { WorkMode.valueOf(sp.getString("workMode", "")!!) }.getOrDefault(WorkMode.NONE)); private set
+    /** Giorni dell'orario fisso: bit 0 = lunedì … bit 6 = domenica. Di default dal lunedì al venerdì. */
+    var workDays by mutableStateOf(sp.getInt("workDays", 0b0011111)); private set
+    var workFixed by mutableStateOf(Shift(sp.getInt("workStart", 9 * 60), sp.getInt("workEnd", 18 * 60))); private set
+    /** Turni per giorno (epochDay). Si tengono solo da una settimana fa in avanti. */
+    var shifts by mutableStateOf(
+        sp.getString("shifts", "")!!.split(',').mapNotNull { e ->
+            val (day, start, end) = e.split('=', '-').takeIf { it.size == 3 }?.map { it.toLongOrNull() ?: return@mapNotNull null } ?: return@mapNotNull null
+            day to Shift(start.toInt(), end.toInt())
+        }.toMap(),
+    ); private set
+    /** Permesso o ferie: tra questi due istanti la scheda Lavoro non compare. */
+    var pauseFrom by mutableStateOf(sp.getLong("pauseFrom", 0)); private set
+    var pauseTo by mutableStateOf(sp.getLong("pauseTo", 0)); private set
+
     fun saveTiles(list: List<String>) { tiles = list; sp.edit().putString("tiles", list.joinToString(",")).apply() }
+    fun saveWorkTiles(list: List<String>) { workTiles = list; sp.edit().putString("workTiles", list.joinToString(",")).apply() }
+    fun saveWorkMode(v: WorkMode) { workMode = v; sp.edit().putString("workMode", v.name).apply() }
+    fun saveWorkDays(v: Int) { workDays = v; sp.edit().putInt("workDays", v).apply() }
+    fun saveWorkFixed(v: Shift) { workFixed = v; sp.edit().putInt("workStart", v.start).putInt("workEnd", v.end).apply() }
+    fun saveShift(day: Long, shift: Shift?) {
+        val oldest = java.time.LocalDate.now().toEpochDay() - 7
+        shifts = (if (shift == null) shifts - day else shifts + (day to shift)).filterKeys { it >= oldest }
+        sp.edit().putString("shifts", shifts.entries.joinToString(",") { "${it.key}=${it.value.start}-${it.value.end}" }).apply()
+    }
+    fun savePause(from: Long, to: Long) { pauseFrom = from; pauseTo = to; sp.edit().putLong("pauseFrom", from).putLong("pauseTo", to).apply() }
     fun saveCategory(pkg: String, category: Category) {
         categories = categories + (pkg to category)
         sp.edit().putString("categories", categories.entries.joinToString(",") { "${it.key}=${it.value.name}" }).apply()

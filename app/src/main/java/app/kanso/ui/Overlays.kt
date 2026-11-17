@@ -298,7 +298,8 @@ private fun keyframesShake() = androidx.compose.animation.core.keyframes<Float> 
 @Composable
 fun AppPicker(vm: KansoViewModel) {
     var query by remember { mutableStateOf("") }
-    val tiles = vm.tiles.toSet()
+    val work = vm.showingWork
+    val tiles = (if (work) vm.workTiles else vm.tiles).toSet()
     val list = remember(vm.apps, query, tiles) {
         val base = vm.apps.filter { it.pkg !in tiles }
         if (query.isBlank()) base else app.kanso.data.matchApps(base, query) + base.filter {
@@ -307,7 +308,7 @@ fun AppPicker(vm: KansoViewModel) {
     }
     Column(Modifier.fillMaxSize().backdrop(cloth = true).statusBarsPadding()) {
         Row(Modifier.padding(start = 24.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Aggiungi alla Home", style = MaterialTheme.typography.headlineMedium, color = K.Paper, modifier = Modifier.weight(1f))
+            Text(if (work) "Aggiungi a Lavoro" else "Aggiungi alla Home", style = MaterialTheme.typography.headlineMedium, color = K.Paper, modifier = Modifier.weight(1f))
             Text("Chiudi", style = MaterialTheme.typography.labelLarge, color = K.Paper,
                 modifier = Modifier.clip(CircleShape).pressable { vm.pickerOpen = false }.padding(12.dp))
         }
@@ -320,7 +321,7 @@ fun AppPicker(vm: KansoViewModel) {
                 val app = list[i]
                 Row(
                     Modifier.animateItem().fillMaxWidth().clip(RoundedCornerShape(20.dp))
-                        .pressable(pressedScale = 0.98f) { vm.addTile(app.pkg); vm.pickerOpen = false }
+                        .pressable(pressedScale = 0.98f) { vm.addTile(app.pkg, work); vm.pickerOpen = false }
                         .padding(horizontal = 8.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
