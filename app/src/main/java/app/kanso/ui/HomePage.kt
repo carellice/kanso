@@ -290,7 +290,8 @@ private fun TileGrid(vm: KansoViewModel, work: Boolean) {
         val fit = if (rows == 0) natural else (maxHeight - gap * (rows - 1)) / rows
         return minOf(natural, fit)
     }
-    val cols = (2..5).maxBy { tileFor(it) } // a parità vince la prima: meno colonne
+    // In orizzontale lo spazio è basso e largo: più colonne per non rimpicciolire i riquadri.
+    val cols = (2..if (maxWidth > maxHeight * 1.5f) 8 else 5).maxBy { tileFor(it) } // a parità vince la prima: meno colonne
     val tile = kotlin.math.floor(tileFor(cols).value - 1).dp.coerceAtLeast(56.dp)
     // Il nome si vede sempre; nei riquadri piccoli margini e spazi si stringono per farci stare icona e nome.
     val compact = tile < 84.dp

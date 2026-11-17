@@ -118,6 +118,8 @@ fun SettingsSheet(vm: KansoViewModel) {
                 Toggle("Pulsante suoneria", "Suoneria o vibrazione con un tocco", p.showRinger, p::saveShowRinger)
                 Divider()
                 Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
+                Divider()
+                Toggle("Rotazione orizzontale", "Kanso ruota con il telefono, anche in orizzontale", p.landscape, p::saveLandscape)
             }
 
             Section("Lavoro") { WorkSettings(vm) }
