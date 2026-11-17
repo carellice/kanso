@@ -58,6 +58,8 @@ fun KansoApp(vm: KansoViewModel) {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(vm.homeSignal) { if (vm.homeSignal > 0) pager.animateScrollToPage(HOME) }
+    // Le impostazioni si aprono anche dalla pagina a sinistra: la modifica dei riquadri riporta alla Home.
+    LaunchedEffect(vm.editing) { if (vm.editing) pager.animateScrollToPage(HOME) }
 
     // Tornando da un'app la Home riaffiora: si riassesta da un poco più vicino e si schiarisce.
     val arrival = remember { androidx.compose.animation.core.Animatable(1f) }
