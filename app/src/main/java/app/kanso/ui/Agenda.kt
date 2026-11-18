@@ -1,5 +1,9 @@
 package app.kanso.ui
 
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import android.Manifest
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -264,7 +268,7 @@ fun AgendaOverlay(vm: KansoViewModel) {
     val today = dayKey(System.currentTimeMillis(), false)
     val tomorrow = dayKey(System.currentTimeMillis() + 86_400_000L, false)
     val days = remember(vm.agenda) { vm.agenda.groupBy { it.day }.toList() }
-    Column(Modifier.fillMaxSize().backdrop(cloth = true).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().backdrop(cloth = true).statusBarsPadding().sideInsetsPadding()) {
         Row(Modifier.padding(start = 24.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Eyebrow("Prossimi $AGENDA_DAYS giorni")
@@ -275,12 +279,15 @@ fun AgendaOverlay(vm: KansoViewModel) {
                 modifier = Modifier.clip(CircleShape).pressable { vm.agendaOpen = false }.padding(12.dp),
             )
         }
-        LazyColumn(
+        // In orizzontale i giorni si dispongono su due colonne.
+        LazyVerticalStaggeredGrid(
+            StaggeredGridCells.Fixed(if (isLandscape()) 2 else 1),
             Modifier.navigationBarsPadding(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalItemSpacing = 14.dp,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            if (days.isEmpty()) item {
+            if (days.isEmpty()) item(span = StaggeredGridItemSpan.FullLine) {
                 KCard {
                     Column {
                         Text("Nessun impegno nei prossimi $AGENDA_DAYS giorni.", style = MaterialTheme.typography.titleLarge, color = K.Paper)
@@ -377,6 +384,7 @@ fun NotesOverlay(vm: KansoViewModel) {
         Column(
             Modifier
                 .statusBarsPadding()
+                .sideInsetsPadding()
                 .padding(horizontal = 20.dp, vertical = 16.dp)
                 .pointerInput(Unit) { detectTapGestures { } },
             verticalArrangement = Arrangement.spacedBy(12.dp),

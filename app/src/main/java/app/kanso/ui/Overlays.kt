@@ -1,5 +1,8 @@
 package app.kanso.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -89,6 +92,9 @@ fun ModalCard(onDismiss: () -> Unit, content: @Composable () -> Unit) {
                     .graphicsLayer { alpha = a.value.coerceIn(0f, 1f); scaleX = 0.9f + 0.1f * a.value; scaleY = 0.9f + 0.1f * a.value }
                     .skin(RoundedCornerShape(32.dp), K.SurfaceHigh, elevation = 16.dp, stitched = 32.dp)
                     .pointerInput(Unit) { detectTapGestures { } }
+                    // In orizzontale l'altezza è poca: la card non si allarga a tutto schermo e il contenuto scorre.
+                    .widthIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState())
                     .padding(26.dp),
             ) { content() }
         }
@@ -114,11 +120,9 @@ fun FrictionPrompt(vm: KansoViewModel, app: AppEntry) {
     LaunchedEffect(Unit) { focus.clearFocus(); keyboard?.hide() }
 
     Scrim(vm::cancelFriction) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 32.dp).pointerInput(Unit) { detectTapGestures { } },
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(Modifier.size(196.dp), contentAlignment = Alignment.Center) {
+        val landscape = isLandscape()
+        val circle = @Composable {
+            Box(Modifier.size(if (landscape) 168.dp else 196.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.fillMaxSize()) {
                     val r = size.minDimension / 2
                     // Cerchio che respira: si allarga e si stringe lentamente.
@@ -133,7 +137,8 @@ fun FrictionPrompt(vm: KansoViewModel, app: AppEntry) {
                 }
                 AppIcon(vm.appsRepo, app.pkg, 64.dp, modifier = Modifier.graphicsLayer { val s = 0.96f + 0.06f * b; scaleX = s; scaleY = s })
             }
-            Spacer(Modifier.height(28.dp))
+        }
+        val words = @Composable {
             Text("Vuoi davvero aprire\n${app.label}?", style = MaterialTheme.typography.headlineMedium, color = K.Paper, textAlign = TextAlign.Center)
             Spacer(Modifier.height(12.dp))
             AnimatedContent(ready, transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(200)) }, label = "breathText") { r ->
@@ -146,10 +151,20 @@ fun FrictionPrompt(vm: KansoViewModel, app: AppEntry) {
                     style = MaterialTheme.typography.bodyLarge, color = K.Muted, textAlign = TextAlign.Center,
                 )
             }
-            Spacer(Modifier.height(36.dp))
+            Spacer(Modifier.height(if (landscape) 24.dp else 36.dp))
             PillButton("Lascia stare", Modifier.fillMaxWidth(), onClick = vm::cancelFriction)
             Spacer(Modifier.height(10.dp))
             PillButton(if (ready) "Apri ${app.label}" else "Un momento…", Modifier.fillMaxWidth(), filled = false, enabled = ready, onClick = vm::confirmFriction)
+        }
+        val m = Modifier.padding(horizontal = 32.dp).pointerInput(Unit) { detectTapGestures { } }
+        // In orizzontale il cerchio del respiro sta a sinistra, domanda e pulsanti a destra.
+        if (landscape) Row(m.widthIn(max = 720.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+            circle()
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) { words() }
+        } else Column(m.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            circle()
+            Spacer(Modifier.height(28.dp))
+            words()
         }
     }
 }
@@ -233,7 +248,9 @@ fun PinPad(title: String, subtitle: String = "", check: (String) -> Boolean, onD
         }
     }
 
-    Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    val landscape = isLandscape()
+    val key = if (landscape) 60.dp else 72.dp
+    val header = @Composable {
         AnimatedContent(title, transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(150)) }, label = "pinTitle") {
             Text(it, style = MaterialTheme.typography.headlineMedium, color = K.Paper)
         }
@@ -256,13 +273,14 @@ fun PinPad(title: String, subtitle: String = "", check: (String) -> Boolean, onD
                 )
             }
         }
-        Spacer(Modifier.height(36.dp))
+    }
+    val pad = @Composable {
         val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "<")
         keys.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 row.forEach { k ->
                     Box(
-                        Modifier.size(72.dp)
+                        Modifier.size(key)
                             .then(
                                 when (k) {
                                     "" -> Modifier
@@ -284,8 +302,17 @@ fun PinPad(title: String, subtitle: String = "", check: (String) -> Boolean, onD
                     }
                 }
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(if (landscape) 8.dp else 14.dp))
         }
+    }
+    // In orizzontale il tastierino sta accanto al titolo: uno sotto l'altro non entrerebbero in altezza.
+    if (landscape) Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(56.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) { header() }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) { pad() }
+    } else Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        header()
+        Spacer(Modifier.height(36.dp))
+        pad()
     }
 }
 
@@ -307,14 +334,16 @@ fun AppPicker(vm: KansoViewModel) {
             app.kanso.data.normalize(it.label).contains(app.kanso.data.normalize(query.trim()))
         }).distinct()
     }
-    Column(Modifier.fillMaxSize().backdrop(cloth = true).statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().backdrop(cloth = true).statusBarsPadding().sideInsetsPadding()) {
         Row(Modifier.padding(start = 24.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (work) "Aggiungi a Lavoro" else "Aggiungi alla Home", style = MaterialTheme.typography.headlineMedium, color = K.Paper, modifier = Modifier.weight(1f))
             Text("Chiudi", style = MaterialTheme.typography.labelLarge, color = K.Paper,
                 modifier = Modifier.clip(CircleShape).pressable { vm.pickerOpen = false }.padding(12.dp))
         }
         Box(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) { FieldBox(query, { query = it }, "Filtra le app") }
-        androidx.compose.foundation.lazy.LazyColumn(
+        // In orizzontale l'elenco va su due colonne.
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            androidx.compose.foundation.lazy.grid.GridCells.Fixed(if (isLandscape()) 2 else 1),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 40.dp),
             modifier = Modifier.navigationBarsPadding(),
         ) {

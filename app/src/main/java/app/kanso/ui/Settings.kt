@@ -65,137 +65,149 @@ fun SettingsSheet(vm: KansoViewModel) {
 
     Box(Modifier.fillMaxSize().backdrop(cloth = true)) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().sideInsetsPadding().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Box(Modifier.padding(horizontal = 4.dp)) {
                 PageHeader("Kanso", "Impostazioni") { PillButton("Fine", filled = false) { vm.settingsOpen = false } }
             }
 
-            Section("Launcher") {
-                Row_(
-                    "Kanso come Home", if (isHome) "Attivo" else "Tocca per impostarlo come launcher predefinito", done = isHome,
-                    onClick = requestHome,
-                )
-                Divider()
-                Row_("Dati di utilizzo", "Tempo schermo e sblocchi", done = vm.hasUsageAccess) {
-                    vm.start(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                }
-                Divider()
-                Row_("Lettura notifiche", "Per il riassunto e per timer e cronometro in Home", done = vm.hasNotificationAccess) {
-                    vm.start(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                }
-                Divider()
-                Row_("Rivedi la presentazione", "Le schede del primo avvio") {
-                    vm.settingsOpen = false; p.saveOnboarded(false)
-                }
-            }
-
-            Section("Stile") {
-                Segmented(listOf("Kanso", "Skeuo", "Modern UI", "Nothing", "Dueffe"), p.style.ordinal) { p.saveStyle(app.kanso.data.Style.entries[it]) }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    when (p.style) {
-                        app.kanso.data.Style.KANSO -> "Inchiostro, carta e un solo accento: essenziale."
-                        app.kanso.data.Style.SKEUO -> "Cuoio cucito, ottone e rilievi, come gli oggetti veri."
-                        app.kanso.data.Style.METRO -> "Nero pieno, riquadri vivi e testo sottile, come Windows Phone."
-                        app.kanso.data.Style.NOTHING -> "Nero OLED, griglia di punti, cifre a matrice e un solo rosso segnale."
-                        app.kanso.data.Style.DUEFFE -> "Fondo quasi nero, superfici calde, testo avorio e un solo accento oro."
-                    },
-                    style = MaterialTheme.typography.bodyMedium, color = K.Muted,
-                )
-            }
-
-            Section("Home") {
-                Row_("Modifica riquadri", "Aggiungi, togli e riordina le app della Home") {
-                    vm.settingsOpen = false; vm.editing = true
-                }
-                Divider()
-                Toggle("Mostra l'orologio", "Ora e data in alto nella Home", p.showClock, p::saveShowClock)
-                Divider()
-                Toggle("Pulsante torcia", "In alto nella Home, accanto all'orologio", p.showTorch, p::saveShowTorch)
-                Divider()
-                Toggle("Pulsante suoneria", "Suoneria o vibrazione con un tocco", p.showRinger, p::saveShowRinger)
-                Divider()
-                Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
-                Divider()
-                Toggle("Rotazione orizzontale", "Kanso ruota con il telefono, anche in orizzontale", p.landscape, p::saveLandscape)
-            }
-
-            Section("Lavoro") { WorkSettings(vm) }
-
-            Section("Attrito consapevole") {
-                Toggle("Chiedi prima di aprire", "Per le app che non sono nella Home", p.friction, p::saveFriction)
-                AnimatedVisibility(p.friction) {
-                    Column {
-                        Spacer(Modifier.height(12.dp))
-                        Label("Durata del respiro per le app che distraggono")
-                        val options = listOf(3, 5, 10)
-                        Segmented(options.map { "$it s" }, options.indexOf(p.frictionSeconds).coerceAtLeast(0)) { p.saveFrictionSeconds(options[it]) }
+            // In orizzontale le sezioni si dividono su due colonne.
+            TwoColumns(listOf(
+                {
+                    Section("Launcher") {
+                        Row_(
+                            "Kanso come Home", if (isHome) "Attivo" else "Tocca per impostarlo come launcher predefinito", done = isHome,
+                            onClick = requestHome,
+                        )
+                        Divider()
+                        Row_("Dati di utilizzo", "Tempo schermo e sblocchi", done = vm.hasUsageAccess) {
+                            vm.start(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                        }
+                        Divider()
+                        Row_("Lettura notifiche", "Per il riassunto e per timer e cronometro in Home", done = vm.hasNotificationAccess) {
+                            vm.start(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        }
+                        Divider()
+                        Row_("Rivedi la presentazione", "Le schede del primo avvio") {
+                            vm.settingsOpen = false; p.saveOnboarded(false)
+                        }
+                    }
+                },
+                {
+                    Section("Stile") {
+                        Segmented(listOf("Kanso", "Skeuo", "Modern UI", "Nothing", "Dueffe"), p.style.ordinal) { p.saveStyle(app.kanso.data.Style.entries[it]) }
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "Social, video, giochi e shopping aspettano la durata intera; le altre app la metà.",
+                            when (p.style) {
+                                app.kanso.data.Style.KANSO -> "Inchiostro, carta e un solo accento: essenziale."
+                                app.kanso.data.Style.SKEUO -> "Cuoio cucito, ottone e rilievi, come gli oggetti veri."
+                                app.kanso.data.Style.METRO -> "Nero pieno, riquadri vivi e testo sottile, come Windows Phone."
+                                app.kanso.data.Style.NOTHING -> "Nero OLED, griglia di punti, cifre a matrice e un solo rosso segnale."
+                                app.kanso.data.Style.DUEFFE -> "Fondo quasi nero, superfici calde, testo avorio e un solo accento oro."
+                            },
                             style = MaterialTheme.typography.bodyMedium, color = K.Muted,
                         )
                     }
-                }
-            }
-
-            Section("Blocco") {
-                Text(
-                    "Protegge impostazioni e Home da modifiche accidentali.",
-                    style = MaterialTheme.typography.bodyMedium, color = K.Muted,
-                )
-                Spacer(Modifier.height(14.dp))
-                Segmented(LockMode.entries.map { it.title }, p.lockMode.ordinal) { i ->
-                    val mode = LockMode.entries[i]
-                    if (mode == LockMode.PIN && !p.hasPin) settingPin = true else p.saveLockMode(mode)
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(p.lockMode.hint, style = MaterialTheme.typography.labelMedium, color = K.Faint)
-                if (p.lockMode == LockMode.PIN) {
-                    Spacer(Modifier.height(6.dp))
-                    Row_("Cambia PIN", "") { settingPin = true }
-                }
-            }
-
-            Section("Riassunto AI") {
-                var account by remember { mutableStateOf(p.cfAccount) }
-                var token by remember { mutableStateOf(p.cfToken) }
-                val dirty = account.trim() != p.cfAccount || token.trim() != p.cfToken
-                Text(
-                    "Usa Cloudflare Workers AI con la tua chiave personale. Crea un token API con il permesso «Workers AI» " +
-                        "su dash.cloudflare.com. Il testo delle notifiche lascia il telefono solo quando premi «Riassumi». " +
-                        "Gli impegni dei prossimi 7 giorni vengono inviati per il riassunto dell'agenda in Home.",
-                    style = MaterialTheme.typography.bodyMedium, color = K.Muted,
-                )
-                Spacer(Modifier.height(16.dp))
-                FieldBox(account, { account = it }, "Account ID")
-                Spacer(Modifier.height(10.dp))
-                FieldBox(token, { token = it }, "Token API", password = true)
-                Spacer(Modifier.height(14.dp))
-                PillButton(if (dirty) "Salva" else "Salvato", enabled = dirty, icon = if (dirty) null else Icons.Rounded.Check) {
-                    p.saveCloudflare(account, token)
-                }
-            }
-
-            Section("Diagnostica timer") {
-                var report by remember { mutableStateOf<String?>(null) }
-                Text(
-                    "Avvia un timer o un cronometro nell'Orologio, poi tocca «Leggi»: qui compare cosa Kanso vede nella sua notifica.",
-                    style = MaterialTheme.typography.bodyMedium, color = K.Muted,
-                )
-                Spacer(Modifier.height(14.dp))
-                PillButton("Leggi", filled = false) {
-                    report = app.kanso.data.Chrono.describe(vm.appContext, app.kanso.data.NotificationCollector.active())
-                }
-                report?.let {
-                    Spacer(Modifier.height(14.dp))
-                    androidx.compose.foundation.text.selection.SelectionContainer {
-                        Text(it, style = MaterialTheme.typography.labelSmall, color = K.Paper)
+                },
+                {
+                    Section("Home") {
+                        Row_("Modifica riquadri", "Aggiungi, togli e riordina le app della Home") {
+                            vm.settingsOpen = false; vm.editing = true
+                        }
+                        Divider()
+                        Toggle("Mostra l'orologio", "Ora e data in alto nella Home", p.showClock, p::saveShowClock)
+                        Divider()
+                        Toggle("Pulsante torcia", "In alto nella Home, accanto all'orologio", p.showTorch, p::saveShowTorch)
+                        Divider()
+                        Toggle("Pulsante suoneria", "Suoneria o vibrazione con un tocco", p.showRinger, p::saveShowRinger)
+                        Divider()
+                        Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
+                        Divider()
+                        Toggle("Rotazione orizzontale", "Kanso ruota con il telefono, anche in orizzontale", p.landscape, p::saveLandscape)
                     }
-                }
-            }
+                },
+                {
+                    Section("Lavoro") { WorkSettings(vm) }
+                },
+                {
+                    Section("Attrito consapevole") {
+                        Toggle("Chiedi prima di aprire", "Per le app che non sono nella Home", p.friction, p::saveFriction)
+                        AnimatedVisibility(p.friction) {
+                            Column {
+                                Spacer(Modifier.height(12.dp))
+                                Label("Durata del respiro per le app che distraggono")
+                                val options = listOf(3, 5, 10)
+                                Segmented(options.map { "$it s" }, options.indexOf(p.frictionSeconds).coerceAtLeast(0)) { p.saveFrictionSeconds(options[it]) }
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Social, video, giochi e shopping aspettano la durata intera; le altre app la metà.",
+                                    style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+                                )
+                            }
+                        }
+                    }
+                },
+                {
+                    Section("Blocco") {
+                        Text(
+                            "Protegge impostazioni e Home da modifiche accidentali.",
+                            style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Segmented(LockMode.entries.map { it.title }, p.lockMode.ordinal) { i ->
+                            val mode = LockMode.entries[i]
+                            if (mode == LockMode.PIN && !p.hasPin) settingPin = true else p.saveLockMode(mode)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(p.lockMode.hint, style = MaterialTheme.typography.labelMedium, color = K.Faint)
+                        if (p.lockMode == LockMode.PIN) {
+                            Spacer(Modifier.height(6.dp))
+                            Row_("Cambia PIN", "") { settingPin = true }
+                        }
+                    }
+                },
+                {
+                    Section("Riassunto AI") {
+                        var account by remember { mutableStateOf(p.cfAccount) }
+                        var token by remember { mutableStateOf(p.cfToken) }
+                        val dirty = account.trim() != p.cfAccount || token.trim() != p.cfToken
+                        Text(
+                            "Usa Cloudflare Workers AI con la tua chiave personale. Crea un token API con il permesso «Workers AI» " +
+                                "su dash.cloudflare.com. Il testo delle notifiche lascia il telefono solo quando premi «Riassumi». " +
+                                "Gli impegni dei prossimi 7 giorni vengono inviati per il riassunto dell'agenda in Home.",
+                            style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        FieldBox(account, { account = it }, "Account ID")
+                        Spacer(Modifier.height(10.dp))
+                        FieldBox(token, { token = it }, "Token API", password = true)
+                        Spacer(Modifier.height(14.dp))
+                        PillButton(if (dirty) "Salva" else "Salvato", enabled = dirty, icon = if (dirty) null else Icons.Rounded.Check) {
+                            p.saveCloudflare(account, token)
+                        }
+                    }
+                },
+                {
+                    Section("Diagnostica timer") {
+                        var report by remember { mutableStateOf<String?>(null) }
+                        Text(
+                            "Avvia un timer o un cronometro nell'Orologio, poi tocca «Leggi»: qui compare cosa Kanso vede nella sua notifica.",
+                            style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        PillButton("Leggi", filled = false) {
+                            report = app.kanso.data.Chrono.describe(vm.appContext, app.kanso.data.NotificationCollector.active())
+                        }
+                        report?.let {
+                            Spacer(Modifier.height(14.dp))
+                            androidx.compose.foundation.text.selection.SelectionContainer {
+                                Text(it, style = MaterialTheme.typography.labelSmall, color = K.Paper)
+                            }
+                        }
+                    }
+                },
+            ))
 
             Text(
                 "Kanso ${BuildConfig.VERSION_NAME} · open source · nessun tracciamento",

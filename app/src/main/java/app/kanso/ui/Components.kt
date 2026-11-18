@@ -9,6 +9,13 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -95,7 +102,9 @@ fun Eyebrow(text: String, modifier: Modifier = Modifier) =
 
 @Composable
 fun PageHeader(eyebrow: String, title: String, trailing: @Composable () -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp), verticalAlignment = Alignment.Bottom) {
+    // In orizzontale l'altezza è preziosa: meno aria sopra e sotto il titolo.
+    val landscape = isLandscape()
+    Row(Modifier.fillMaxWidth().padding(top = if (landscape) 8.dp else 28.dp, bottom = if (landscape) 12.dp else 20.dp), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
             Eyebrow(eyebrow)
             Spacer(Modifier.height(6.dp))
@@ -215,4 +224,26 @@ class LaunchFrom(private val view: android.view.View) {
 fun rememberLaunchFrom(): LaunchFrom {
     val view = androidx.compose.ui.platform.LocalView.current
     return remember(view) { LaunchFrom(view) }
+}
+
+/** Kanso girato in orizzontale. */
+@Composable
+fun isLandscape() = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+/** In orizzontale barra di navigazione e foro della fotocamera stanno di lato: il contenuto si scosta. In verticale non fa nulla. */
+@Composable
+fun Modifier.sideInsetsPadding() = windowInsetsPadding(
+    WindowInsets.navigationBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal),
+)
+
+/** In verticale una sotto l'altra; in orizzontale su due colonne, la prima metà a sinistra e il resto a destra. */
+@Composable
+fun TwoColumns(items: List<@Composable () -> Unit>, spacing: Dp = 14.dp) {
+    if (!isLandscape()) Column(verticalArrangement = Arrangement.spacedBy(spacing)) { items.forEach { it() } }
+    else Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
+        val half = (items.size + 1) / 2
+        listOf(items.take(half), items.drop(half)).forEach { part ->
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing)) { part.forEach { it() } }
+        }
+    }
 }

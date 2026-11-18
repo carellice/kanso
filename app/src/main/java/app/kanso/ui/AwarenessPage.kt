@@ -66,6 +66,7 @@ fun AwarenessPage(vm: KansoViewModel) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .statusBarsPadding()
+            .sideInsetsPadding()
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -82,8 +83,8 @@ fun AwarenessPage(vm: KansoViewModel) {
                 "Concedi accesso",
             ) { vm.start(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
         } else if (usage != null) {
-            ScreenTimeCard(usage)
-            TopAppsCard(vm, usage)
+            // In orizzontale tempo schermo e classifica stanno affiancati.
+            TwoColumns(listOf({ ScreenTimeCard(usage) }, { TopAppsCard(vm, usage) }))
         }
 
         Spacer(Modifier.navigationBarsPadding().height(60.dp))

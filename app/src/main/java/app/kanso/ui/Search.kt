@@ -120,7 +120,7 @@ fun SearchOverlay(vm: KansoViewModel) {
         is Result.Web -> vm.view(webUri(r.query))
     }
 
-    Column(Modifier.fillMaxSize().background(K.Ink.copy(alpha = 0.82f)).statusBarsPadding().imePadding()) {
+    Column(Modifier.fillMaxSize().background(K.Ink.copy(alpha = 0.82f)).statusBarsPadding().sideInsetsPadding().imePadding()) {
         Row(Modifier.padding(start = 20.dp, end = 12.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
                 Modifier

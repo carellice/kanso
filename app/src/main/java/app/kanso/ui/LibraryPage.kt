@@ -1,5 +1,10 @@
 package app.kanso.ui
 
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -69,7 +74,7 @@ private const val PREVIEW = 8
 @Composable
 fun LibraryPage(vm: KansoViewModel, active: Boolean) {
     // Uscendo dalla Libreria si torna in cima: al ritorno si riparte dall'inizio.
-    val list = rememberLazyListState()
+    val list = rememberLazyStaggeredGridState()
     LaunchedEffect(active) { if (!active) list.scrollToItem(0) }
     val tiles = vm.tiles.toSet()
     val groups = remember(vm.apps, tiles) {
@@ -77,13 +82,16 @@ fun LibraryPage(vm: KansoViewModel, active: Boolean) {
     }
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
 
-    LazyColumn(
-        Modifier.fillMaxSize(),
+    // In orizzontale le categorie si dispongono su due colonne, ognuna alta quanto le sue app.
+    LazyVerticalStaggeredGrid(
+        StaggeredGridCells.Fixed(if (isLandscape()) 2 else 1),
+        Modifier.fillMaxSize().sideInsetsPadding(),
         state = list,
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 80.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalItemSpacing = 14.dp,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item {
+        item(span = StaggeredGridItemSpan.FullLine) {
             Box(Modifier.statusBarsPadding().padding(horizontal = 4.dp)) {
                 PageHeader("${vm.apps.size - tiles.size} app", "Libreria")
             }
@@ -92,7 +100,7 @@ fun LibraryPage(vm: KansoViewModel, active: Boolean) {
             CategoryCard(vm, category, apps, Modifier.animateItem(), onLongPress = { menuFor = it })
         }
         if (vm.privateUser != null) item(key = "private") { PrivateCard(vm, Modifier.animateItem()) }
-        item { Spacer(Modifier.navigationBarsPadding()) }
+        item(span = StaggeredGridItemSpan.FullLine) { Spacer(Modifier.navigationBarsPadding()) }
     }
 
     menuFor?.let { app -> AppMenu(vm, app) { menuFor = null } }
