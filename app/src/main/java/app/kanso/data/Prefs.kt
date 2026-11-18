@@ -30,6 +30,7 @@ class Prefs(context: Context) {
     var showClock by mutableStateOf(sp.getBoolean("showClock", false)); private set
     var showTorch by mutableStateOf(sp.getBoolean("showTorch", true)); private set
     var showRinger by mutableStateOf(sp.getBoolean("showRinger", true)); private set
+    var showRotation by mutableStateOf(sp.getBoolean("showRotation", true)); private set
     var landscape by mutableStateOf(sp.getBoolean("landscape", false)); private set
     /** Id dei widget di Android nella pagina Consapevolezza, in ordine. */
     var widgets by mutableStateOf(sp.getString("widgets", "")!!.split(',').mapNotNull { it.toIntOrNull() }); private set
@@ -101,6 +102,7 @@ class Prefs(context: Context) {
     fun saveShowClock(v: Boolean) { showClock = v; sp.edit().putBoolean("showClock", v).apply() }
     fun saveShowTorch(v: Boolean) { showTorch = v; sp.edit().putBoolean("showTorch", v).apply() }
     fun saveShowRinger(v: Boolean) { showRinger = v; sp.edit().putBoolean("showRinger", v).apply() }
+    fun saveShowRotation(v: Boolean) { showRotation = v; sp.edit().putBoolean("showRotation", v).apply() }
     fun saveLandscape(v: Boolean) { landscape = v; sp.edit().putBoolean("landscape", v).apply() }
     fun saveWidgets(list: List<Int>) {
         widgets = list

@@ -5,12 +5,16 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.database.ContentObserver
+import android.net.Uri
 import android.media.AudioManager
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import app.kanso.KansoViewModel
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.ScreenLockRotation
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Vibration
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -83,5 +87,32 @@ fun RingerButton(vm: KansoViewModel) {
             vm.toast("Consenti a Kanso l'accesso a \"Non disturbare\"")
             vm.start(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
         } else runCatching { am.ringerMode = next; mode = next }
+    }
+}
+
+/** Rotazione automatica dello schermo: un tocco la blocca o la sblocca. Segue anche le impostazioni rapide. */
+@Composable
+fun RotationButton(vm: KansoViewModel) {
+    val ctx = LocalContext.current
+    val cr = ctx.contentResolver
+    fun read() = Settings.System.getInt(cr, Settings.System.ACCELEROMETER_ROTATION, 0) == 1
+    var auto by remember { mutableStateOf(read()) }
+    DisposableEffect(Unit) {
+        val o = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) { auto = read() }
+        }
+        cr.registerContentObserver(Settings.System.getUriFor(Settings.System.ACCELEROMETER_ROTATION), false, o)
+        onDispose { cr.unregisterContentObserver(o) }
+    }
+    IconCircle(
+        if (auto) Icons.Rounded.ScreenRotation else Icons.Rounded.ScreenLockRotation,
+        if (auto) "Blocca la rotazione" else "Sblocca la rotazione",
+        active = !auto,
+    ) {
+        // Cambiare un'impostazione di sistema richiede un permesso speciale, concesso dalle impostazioni.
+        if (!Settings.System.canWrite(ctx)) {
+            vm.toast("Consenti a Kanso di modificare le impostazioni di sistema")
+            vm.start(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}")))
+        } else runCatching { Settings.System.putInt(cr, Settings.System.ACCELEROMETER_ROTATION, if (auto) 0 else 1) }
     }
 }

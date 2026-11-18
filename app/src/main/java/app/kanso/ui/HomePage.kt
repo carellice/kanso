@@ -112,7 +112,7 @@ fun HomePage(vm: KansoViewModel) {
     val tracker = remember { VelocityTracker() }
     val context = androidx.compose.ui.platform.LocalContext.current
     val hasTorch = remember { torchCamera(context) != null }
-    val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger
+    val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger || vm.prefs.showRotation
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val home = Modifier
         .fillMaxSize()
@@ -249,6 +249,7 @@ private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean) {
             if (toggles) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (vm.prefs.showTorch) TorchButton()
                 if (vm.prefs.showRinger) RingerButton(vm)
+                if (vm.prefs.showRotation) RotationButton(vm)
             }
         }
         // Accanto all'orologio in colonna, coi pulsanti sotto; da soli, in riga coi pulsanti a destra.
