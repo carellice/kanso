@@ -19,6 +19,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -45,46 +49,53 @@ fun WidgetsSection(vm: KansoViewModel) {
     val context = LocalContext.current
     val activity = LocalActivity.current as? MainActivity
     var picking by remember { mutableStateOf(false) }
-    var removing by remember { mutableStateOf(false) }
-    var resizing by remember { mutableStateOf<Int?>(null) }
+    // Modifica: spostare, ridimensionare, bloccare lo scorrimento e togliere i widget.
+    var editing by remember { mutableStateOf(false) }
     val ids = vm.prefs.widgets
     val density = LocalDensity.current
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        ids.forEach { id ->
+        ids.forEachIndexed { index, id ->
             key(id) {
                 val info = remember(id) { Widgets.manager(context).getAppWidgetInfo(id) }
+                val fixed = id in vm.prefs.fixedWidgets
                 // App disinstallata: il widget non c'è più, resta solo il pulsante per toglierlo.
-                if (info != null || removing) Column {
-                    Box {
-                        if (info != null) {
-                            val minDp = with(density) { maxOf(info.minResizeHeight.toDp(), 48.dp).value }
-                            val defaultDp = with(density) { maxOf(info.minHeight.toDp(), 72.dp).value }
-                            var height by remember(id) { mutableFloatStateOf(vm.prefs.widgetHeights[id]?.toFloat() ?: defaultDp) }
-                            AndroidView(
-                                factory = { ctx -> Widgets.host(ctx).createView(ctx, id, info).also { (it as? Widgets.HostView)?.onLongPress = { resizing = id } } },
-                                modifier = Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(20.dp)),
-                            )
-                            if (resizing == id) {
-                                PillButton("Fine", Modifier.align(Alignment.TopEnd).padding(8.dp)) { resizing = null }
-                                // Maniglia in basso: si trascina su e giù per cambiare l'altezza.
-                                Box(
-                                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(36.dp)
-                                        .draggable(
-                                            rememberDraggableState { delta -> height = (height + delta / density.density).coerceIn(minDp, 640f) },
-                                            Orientation.Vertical,
-                                            onDragStopped = { vm.prefs.saveWidgetHeight(id, height.toInt()) },
-                                        ),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Box(Modifier.width(48.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(K.Paper))
-                                }
-                            }
+                if (info != null || editing) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (editing) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconCircle(Icons.Rounded.KeyboardArrowUp, "Sposta su", Modifier.alpha(if (index > 0) 1f else 0.35f)) {
+                            if (index > 0) vm.prefs.saveWidgets(ids.toMutableList().apply { add(index - 1, removeAt(index)) })
                         }
-                        if (removing) PillButton("Togli", Modifier.align(Alignment.TopEnd).padding(8.dp), icon = Icons.Rounded.Close) {
+                        IconCircle(Icons.Rounded.KeyboardArrowDown, "Sposta giù", Modifier.alpha(if (index < ids.lastIndex) 1f else 0.35f)) {
+                            if (index < ids.lastIndex) vm.prefs.saveWidgets(ids.toMutableList().apply { add(index + 1, removeAt(index)) })
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (info != null) PillButton(if (fixed) "Fisso" else "Scorre", filled = false) { vm.prefs.saveWidgetFixed(id, !fixed) }
+                        IconCircle(Icons.Rounded.Close, "Togli") {
                             Widgets.host(context).deleteAppWidgetId(id)
                             vm.prefs.saveWidgets(vm.prefs.widgets - id)
-                            if (vm.prefs.widgets.isEmpty()) removing = false
+                            if (vm.prefs.widgets.isEmpty()) editing = false
+                        }
+                    }
+                    if (info != null) Box {
+                        val minDp = with(density) { maxOf(info.minResizeHeight.toDp(), 48.dp).value }
+                        val defaultDp = with(density) { maxOf(info.minHeight.toDp(), 72.dp).value }
+                        var height by remember(id) { mutableFloatStateOf(vm.prefs.widgetHeights[id]?.toFloat() ?: defaultDp) }
+                        AndroidView(
+                            factory = { ctx -> Widgets.host(ctx).createView(ctx, id, info) },
+                            update = { (it as? Widgets.HostView)?.scrollable = !fixed },
+                            modifier = Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(20.dp)),
+                        )
+                        // Maniglia in basso: si trascina su e giù per cambiare l'altezza.
+                        if (editing) Box(
+                            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(36.dp)
+                                .draggable(
+                                    rememberDraggableState { delta -> height = (height + delta / density.density).coerceIn(minDp, 640f) },
+                                    Orientation.Vertical,
+                                    onDragStopped = { vm.prefs.saveWidgetHeight(id, height.toInt()) },
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(Modifier.width(48.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(K.Paper))
                         }
                     }
                 }
@@ -92,8 +103,8 @@ fun WidgetsSection(vm: KansoViewModel) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PillButton("Aggiungi widget", filled = false, icon = Icons.Rounded.Add) { vm.guarded { picking = true } }
-            if (ids.isNotEmpty()) PillButton(if (removing) "Fine" else "Togli widget", filled = false) {
-                if (removing) removing = false else vm.guarded { removing = true }
+            if (ids.isNotEmpty()) PillButton(if (editing) "Fine" else "Modifica widget", filled = false, icon = if (editing) null else Icons.Rounded.Edit) {
+                if (editing) editing = false else vm.guarded { editing = true }
             }
         }
     }

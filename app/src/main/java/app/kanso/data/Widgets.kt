@@ -9,7 +9,6 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.os.Bundle
-import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -25,34 +24,30 @@ object Widgets {
     }.also { host = it }
     fun manager(context: Context): AppWidgetManager = AppWidgetManager.getInstance(context)
 
-    /** Widget in bianco e nero, con pressione lunga per ridimensionarlo come in un launcher. */
+    /** Widget in bianco e nero; se non scorrevole, i trascinamenti vanno alla pagina e non al widget. */
     class HostView(context: Context) : AppWidgetHostView(context) {
-        var onLongPress: (() -> Unit)? = null
+        var scrollable = true
         private var downX = 0f
         private var downY = 0f
-        private var fired = false
         private val slop = ViewConfiguration.get(context).scaledTouchSlop
-        private val longPress = Runnable {
-            fired = true
-            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            onLongPress?.invoke()
-        }
 
         init {
             setLayerType(View.LAYER_TYPE_HARDWARE, Paint().apply { colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) })
         }
 
-        // I figli del widget consumano i tocchi: la pressione lunga si intercetta qui, prima di loro.
+        // Non scorrevole: oltre la soglia il gesto si toglie ai figli (ricevono CANCEL), i tocchi restano.
         override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+            if (scrollable) return false
             when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    fired = false; downX = ev.x; downY = ev.y
-                    postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
-                }
-                MotionEvent.ACTION_MOVE -> if (abs(ev.x - downX) > slop || abs(ev.y - downY) > slop) removeCallbacks(longPress)
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> removeCallbacks(longPress)
+                MotionEvent.ACTION_DOWN -> { downX = ev.x; downY = ev.y }
+                MotionEvent.ACTION_MOVE -> return abs(ev.x - downX) > slop || abs(ev.y - downY) > slop
             }
-            return fired
+            return false
+        }
+
+        // Non scorrevole: le liste del widget non possono impedire alla pagina di scorrere.
+        override fun requestDisallowInterceptTouchEvent(disallow: Boolean) {
+            if (scrollable || !disallow) super.requestDisallowInterceptTouchEvent(disallow)
         }
 
         // Il widget si ridisegna per la misura che ha davvero.

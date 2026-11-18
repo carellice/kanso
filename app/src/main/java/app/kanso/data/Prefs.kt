@@ -41,6 +41,8 @@ class Prefs(context: Context) {
             id to h
         }.toMap(),
     ); private set
+    /** Widget che non scorrono: il trascinamento muove la pagina. */
+    var fixedWidgets by mutableStateOf(sp.getString("fixedWidgets", "")!!.split(',').mapNotNull { it.toIntOrNull() }.toSet()); private set
     var doubleTapLock by mutableStateOf(sp.getBoolean("doubleTapLock", false)); private set
     // Prima c'era solo l'interruttore "skeuo": chi lo aveva acceso resta sullo skeuomorfismo.
     var style by mutableStateOf(
@@ -107,7 +109,13 @@ class Prefs(context: Context) {
     fun saveWidgets(list: List<Int>) {
         widgets = list
         widgetHeights = widgetHeights.filterKeys { it in list }
-        sp.edit().putString("widgets", list.joinToString(",")).putString("widgetHeights", widgetHeights.entries.joinToString(",") { "${it.key}=${it.value}" }).apply()
+        fixedWidgets = fixedWidgets.filter { it in list }.toSet()
+        sp.edit().putString("widgets", list.joinToString(",")).putString("widgetHeights", widgetHeights.entries.joinToString(",") { "${it.key}=${it.value}" })
+            .putString("fixedWidgets", fixedWidgets.joinToString(",")).apply()
+    }
+    fun saveWidgetFixed(id: Int, fixed: Boolean) {
+        fixedWidgets = if (fixed) fixedWidgets + id else fixedWidgets - id
+        sp.edit().putString("fixedWidgets", fixedWidgets.joinToString(",")).apply()
     }
     fun saveWidgetHeight(id: Int, dp: Int) {
         widgetHeights = widgetHeights + (id to dp)
