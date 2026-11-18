@@ -1,5 +1,13 @@
 package app.kanso.ui
 
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
@@ -38,11 +46,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -107,54 +113,54 @@ fun HomePage(vm: KansoViewModel) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val hasTorch = remember { torchCamera(context) != null }
     val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger
-    Column(
-        Modifier
-            .fillMaxSize()
-            // Il gesto si legge prima dello spostamento: così il dito non "insegue" il contenuto che si muove.
-            .pointerInput(vm.editing) {
-                if (vm.editing) return@pointerInput
-                detectVerticalDragGestures(
-                    onDragStart = { tracker.resetTracking() },
-                    onVerticalDrag = { change, dy ->
-                        change.consume()
-                        tracker.addPosition(change.uptimeMillis, change.position)
-                        val before = pull.value
-                        val next = before + dy * 0.55f
-                        if ((before.absoluteValue < threshold) != (next.absoluteValue < threshold)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        scope.launch { pull.snapTo(next) }
-                    },
-                    onDragEnd = {
-                        // Basta superare la soglia oppure un colpo deciso nella stessa direzione.
-                        val v = tracker.calculateVelocity().y
-                        when {
-                            pull.value < -threshold || (v < -flingSpeed && pull.value < 0) -> vm.searchOpen = true
-                            pull.value > threshold || (v > flingSpeed && pull.value > 0) -> vm.pullDown()
-                        }
-                        scope.launch { pull.animateTo(0f, spring(0.75f, 260f)) }
-                    },
-                    onDragCancel = { scope.launch { pull.animateTo(0f, spring(0.75f, 260f)) } },
-                )
-            }
-            .graphicsLayer {
-                translationY = pull.value
-                val p = (pull.value.absoluteValue / (threshold * 3)).coerceIn(0f, 1f)
-                alpha = 1f - p * 0.6f
-                scaleX = 1f - p * 0.05f; scaleY = scaleX
-            }
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 24.dp)
-            .pointerInput(vm.editing) {
-                if (!vm.editing) detectTapGestures(onLongPress = { vm.guarded { vm.editing = true } })
-            },
-    ) {
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val home = Modifier
+        .fillMaxSize()
+        // Il gesto si legge prima dello spostamento: così il dito non "insegue" il contenuto che si muove.
+        .pointerInput(vm.editing) {
+            if (vm.editing) return@pointerInput
+            detectVerticalDragGestures(
+                onDragStart = { tracker.resetTracking() },
+                onVerticalDrag = { change, dy ->
+                    change.consume()
+                    tracker.addPosition(change.uptimeMillis, change.position)
+                    val before = pull.value
+                    val next = before + dy * 0.55f
+                    if ((before.absoluteValue < threshold) != (next.absoluteValue < threshold)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    scope.launch { pull.snapTo(next) }
+                },
+                onDragEnd = {
+                    // Basta superare la soglia oppure un colpo deciso nella stessa direzione.
+                    val v = tracker.calculateVelocity().y
+                    when {
+                        pull.value < -threshold || (v < -flingSpeed && pull.value < 0) -> vm.searchOpen = true
+                        pull.value > threshold || (v > flingSpeed && pull.value > 0) -> vm.pullDown()
+                    }
+                    scope.launch { pull.animateTo(0f, spring(0.75f, 260f)) }
+                },
+                onDragCancel = { scope.launch { pull.animateTo(0f, spring(0.75f, 260f)) } },
+            )
+        }
+        .graphicsLayer {
+            translationY = pull.value
+            val p = (pull.value.absoluteValue / (threshold * 3)).coerceIn(0f, 1f)
+            alpha = 1f - p * 0.6f
+            scaleX = 1f - p * 0.05f; scaleY = scaleX
+        }
+        // In orizzontale il foro della fotocamera sta di lato: le barre e il ritaglio insieme, senza sommarli.
+        .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+        .padding(horizontal = 24.dp)
+        .pointerInput(vm.editing) {
+            if (!vm.editing) detectTapGestures(onLongPress = { vm.guarded { vm.editing = true } })
+        }
+    val topBar = @Composable {
         AnimatedContent(
             if (vm.editing) TopBar.EDIT else if (vm.prefs.showClock || Chrono.active.isNotEmpty() || toggles) TopBar.CLOCK else TopBar.NONE,
             transitionSpec = { (fadeIn(tween(300)) + slideInVertically { -it / 2 }) togetherWith (fadeOut(tween(200)) + slideOutVertically { -it / 2 }) },
             label = "editBar",
-            modifier = Modifier.padding(top = 20.dp).heightIn(min = 48.dp),
+            modifier = Modifier.padding(top = if (landscape) 8.dp else 20.dp).heightIn(min = 48.dp),
         ) { bar ->
-            if (bar == TopBar.CLOCK) Clock(vm, toggles)
+            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape)
             else if (bar == TopBar.EDIT) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.settingsOpen = true }
@@ -165,16 +171,16 @@ fun HomePage(vm: KansoViewModel) {
                 }
             } else Spacer(Modifier.fillMaxWidth())
         }
-
+    }
+    val agenda = @Composable { m: Modifier ->
         AnimatedVisibility(
-            !vm.editing,
+            !vm.editing, m,
             enter = fadeIn(tween(300)) + expandVertically(Motion.soft()),
             exit = fadeOut(tween(150)) + shrinkVertically(Motion.soft()),
         ) { AgendaPeek(vm, Modifier.padding(top = 14.dp)) }
-
-        WorkBar(vm)
-
-        // Personale e Lavoro scorrono di lato, nella direzione del controllo.
+    }
+    // Personale e Lavoro scorrono di lato, nella direzione del controllo.
+    val tiles = @Composable { m: Modifier ->
         AnimatedContent(
             vm.showingWork,
             transitionSpec = {
@@ -183,11 +189,31 @@ fun HomePage(vm: KansoViewModel) {
                     (fadeOut(tween(200)) + androidx.compose.animation.slideOutHorizontally(tween(320, easing = Motion.Calm)) { -it / 3 * dir })
             },
             label = "workTab",
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = m.fillMaxWidth(),
         ) { work ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TileGrid(vm, work) }
         }
-
+    }
+    // In orizzontale due colonne: a sinistra orologio, agenda e ricerca; a destra i riquadri, alti quanto lo schermo.
+    if (landscape) Row(home, horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+        Column(Modifier.weight(0.42f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+            // La ricerca si misura per prima e resta in fondo: sugli schermi bassi è l'agenda ad accorciarsi.
+            Column(Modifier.weight(1f, fill = false)) {
+                topBar()
+                agenda(Modifier)
+            }
+            SearchBar(Modifier.padding(top = 12.dp, bottom = 16.dp)) { vm.searchOpen = true }
+        }
+        // In fondo, al centro, ci sono i pallini delle pagine: i riquadri si fermano poco sopra.
+        Column(Modifier.weight(0.58f).fillMaxHeight().padding(bottom = 24.dp)) {
+            WorkBar(vm)
+            tiles(Modifier.weight(1f))
+        }
+    } else Column(home) {
+        topBar()
+        agenda(Modifier)
+        WorkBar(vm)
+        tiles(Modifier.weight(1f))
         SearchBar(Modifier.padding(bottom = 40.dp)) { vm.searchOpen = true }
     }
 }
@@ -196,7 +222,7 @@ private enum class TopBar { NONE, CLOCK, EDIT }
 
 /** Orologio facoltativo: ore e data, aggiornati allo scoccare di ogni minuto. Accanto, timer e cronometri attivi. */
 @Composable
-private fun Clock(vm: KansoViewModel, toggles: Boolean) {
+private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean) {
     val chronos = Chrono.active
     val now by produceState(System.currentTimeMillis(), chronos.isEmpty()) {
         while (true) {
@@ -204,12 +230,14 @@ private fun Clock(vm: KansoViewModel, toggles: Boolean) {
             delay(if (chronos.isEmpty()) 60_000 - value % 60_000 else 1_000 - value % 1_000)
         }
     }
-    Row(Modifier.fillMaxWidth().padding(top = 24.dp), verticalAlignment = Alignment.Bottom) {
+    Row(Modifier.fillMaxWidth().padding(top = if (landscape) 8.dp else 24.dp), verticalAlignment = Alignment.Bottom) {
         if (vm.prefs.showClock) {
             val time = remember(now / 60_000) { SimpleDateFormat("HH:mm", Locale.ITALIAN).format(Date(now)) }
             val date = remember(now / 60_000) { SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN).format(Date(now)) }
             Column(Modifier.weight(1f).pressable(pressedScale = 0.97f) { vm.start(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }) {
-                Text(time, style = MaterialTheme.typography.displayLarge.copy(fontSize = 84.sp, lineHeight = 88.sp), color = K.Paper)
+                // In orizzontale l'altezza è poca: l'ora si rimpicciolisce per lasciare posto all'agenda.
+                val size = if (landscape) 64 else 84
+                Text(time, style = MaterialTheme.typography.displayLarge.copy(fontSize = size.sp, lineHeight = (size + 4).sp), color = K.Paper)
                 Eyebrow(date)
             }
         }
