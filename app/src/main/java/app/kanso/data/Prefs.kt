@@ -31,6 +31,8 @@ class Prefs(context: Context) {
     var showTorch by mutableStateOf(sp.getBoolean("showTorch", true)); private set
     var showRinger by mutableStateOf(sp.getBoolean("showRinger", true)); private set
     var landscape by mutableStateOf(sp.getBoolean("landscape", false)); private set
+    /** Id dei widget di Android nella pagina Consapevolezza, in ordine. */
+    var widgets by mutableStateOf(sp.getString("widgets", "")!!.split(',').mapNotNull { it.toIntOrNull() }); private set
     var doubleTapLock by mutableStateOf(sp.getBoolean("doubleTapLock", false)); private set
     // Prima c'era solo l'interruttore "skeuo": chi lo aveva acceso resta sullo skeuomorfismo.
     var style by mutableStateOf(
@@ -93,6 +95,7 @@ class Prefs(context: Context) {
     fun saveShowTorch(v: Boolean) { showTorch = v; sp.edit().putBoolean("showTorch", v).apply() }
     fun saveShowRinger(v: Boolean) { showRinger = v; sp.edit().putBoolean("showRinger", v).apply() }
     fun saveLandscape(v: Boolean) { landscape = v; sp.edit().putBoolean("landscape", v).apply() }
+    fun saveWidgets(list: List<Int>) { widgets = list; sp.edit().putString("widgets", list.joinToString(",")).apply() }
     fun saveDoubleTapLock(v: Boolean) { doubleTapLock = v; sp.edit().putBoolean("doubleTapLock", v).apply() }
     fun saveOnboarded(v: Boolean = true) { onboarded = v; sp.edit().putBoolean("onboarded", v).apply() }
     fun saveLockMode(v: LockMode) { lockMode = v; sp.edit().putString("lockMode", v.name).apply() }

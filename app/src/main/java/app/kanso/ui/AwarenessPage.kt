@@ -87,6 +87,8 @@ fun AwarenessPage(vm: KansoViewModel) {
             TwoColumns(listOf({ ScreenTimeCard(usage) }, { TopAppsCard(vm, usage) }))
         }
 
+        WidgetsSection(vm)
+
         Spacer(Modifier.navigationBarsPadding().height(60.dp))
     }
 }

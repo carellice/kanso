@@ -1,5 +1,7 @@
 package app.kanso
 
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
@@ -11,6 +13,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import app.kanso.data.Theme
+import app.kanso.data.Widgets
 import app.kanso.ui.K
 import app.kanso.ui.KansoApp
 import app.kanso.ui.KansoTheme
@@ -41,6 +44,44 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // I widget si aggiornano solo mentre l'host è in ascolto.
+    override fun onStart() { super.onStart(); runCatching { Widgets.host(this).startListening() } }
+    override fun onStop() { super.onStop(); runCatching { Widgets.host(this).stopListening() } }
+
+    /** Aggiunge un widget: permesso di collegarlo, poi l'eventuale configurazione, poi in pagina. */
+    fun addWidget(info: AppWidgetProviderInfo) {
+        val id = Widgets.host(this).allocateAppWidgetId()
+        if (Widgets.manager(this).bindAppWidgetIdIfAllowed(id, info.provider)) configureWidget(id, info)
+        else {
+            val bind = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, info.provider)
+            @Suppress("DEPRECATION") startActivityForResult(bind, REQ_BIND)
+        }
+    }
+
+    private fun configureWidget(id: Int, info: AppWidgetProviderInfo?) {
+        if (info?.configure == null) return widgetReady(id)
+        // La schermata di configurazione spesso non è esportata: la apre l'host per conto dell'app.
+        runCatching { Widgets.host(this).startAppWidgetConfigureActivityForResult(this, id, 0, REQ_CONFIGURE, null) }
+            .onFailure { widgetReady(id) }
+    }
+
+    private fun widgetReady(id: Int) { vm.prefs.saveWidgets(vm.prefs.widgets + id) }
+
+    @Deprecated("Il collegamento e la configurazione dei widget passano ancora da qui.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_BIND && requestCode != REQ_CONFIGURE) return
+        val id = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
+        if (id == -1) return
+        when {
+            resultCode != RESULT_OK -> Widgets.host(this).deleteAppWidgetId(id)
+            requestCode == REQ_BIND -> configureWidget(id, Widgets.manager(this).getAppWidgetInfo(id))
+            else -> widgetReady(id)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         vm.refresh()
@@ -51,5 +92,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.hasCategory(Intent.CATEGORY_HOME)) vm.onHomePressed()
+    }
+
+    private companion object {
+        const val REQ_BIND = 41
+        const val REQ_CONFIGURE = 42
     }
 }
