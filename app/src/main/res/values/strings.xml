@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Kanso</string>
+    <string name="lock_service_description">Permette a Kanso di spegnere lo schermo quando tocchi due volte la Home. Kanso non legge il contenuto dello schermo né quello che scrivi.</string>
 </resources>

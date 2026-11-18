@@ -150,8 +150,11 @@ fun HomePage(vm: KansoViewModel) {
         // In orizzontale il foro della fotocamera sta di lato: le barre e il ritaglio insieme, senza sommarli.
         .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
         .padding(horizontal = 24.dp)
-        .pointerInput(vm.editing) {
-            if (!vm.editing) detectTapGestures(onLongPress = { vm.guarded { vm.editing = true } })
+        .pointerInput(vm.editing, vm.prefs.doubleTapLock) {
+            if (!vm.editing) detectTapGestures(
+                onLongPress = { vm.guarded { vm.editing = true } },
+                onDoubleTap = if (vm.prefs.doubleTapLock) { _ -> vm.lockScreen() } else null,
+            )
         }
     val topBar = @Composable {
         AnimatedContent(

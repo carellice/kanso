@@ -24,6 +24,7 @@ Launcher Android open source che mette insieme semplicità e benessere digitale.
 - **App di lavoro**: in orario di lavoro la Home mostra il controllo Personale | Lavoro. Orario fisso (giorni e ore) oppure turni impostati settimana per settimana, anche di notte. Dalla Home si prendono ferie o un permesso, e il controllo sparisce finché dura. In orario le app di lavoro si aprono senza attrito.
 - **Attrito consapevole**: prima di aprire un'app fuori dalla Home compare "Vuoi davvero aprire…?" con un respiro guidato. Social, video, giochi e shopping aspettano la durata intera, le altre app la metà.
 - **Blocco**: impostazioni e modifica della Home protette da PIN (salvato come hash SHA-256 con sale) o dal gesto "tieni premuto 3 secondi".
+- **Doppio tocco per bloccare** (facoltativo, dalle impostazioni): tocca due volte la Home per spegnere lo schermo. Usa un servizio di accessibilità che non legge nulla.
 - **Spazio privato** (Android 15): con Kanso come Home, in fondo alla Libreria compare una sezione apposita con le sue app quando è sbloccato.
 - **Riassunto notifiche** con uno swipe verso il basso in Home, con Cloudflare Workers AI e la tua chiave personale. Kanso tiene solo una copia locale delle notifiche ancora nel pannello (al massimo 24 ore): quelle che togli escono anche dal riassunto. Invia il testo solo quando premi "Riassumi". Le notifiche restano gestite da Android.
 

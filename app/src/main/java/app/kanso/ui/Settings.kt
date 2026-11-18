@@ -130,6 +130,15 @@ fun SettingsSheet(vm: KansoViewModel) {
                         Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
                         Divider()
                         Toggle("Rotazione orizzontale", "Kanso ruota con il telefono, anche in orizzontale", p.landscape, p::saveLandscape)
+                        Divider()
+                        Toggle("Doppio tocco per bloccare", "Tocca due volte la Home per spegnere lo schermo", p.doubleTapLock, p::saveDoubleTapLock)
+                        AnimatedVisibility(p.doubleTapLock) {
+                            // Spegnere lo schermo senza amministratore del dispositivo richiede il servizio di accessibilità.
+                            val enabled = remember(vm.returnSignal) { app.kanso.data.LockService.enabled(context) }
+                            Row_("Servizio di accessibilità", if (enabled) "Attivo" else "Attiva «Kanso» per poter spegnere lo schermo", done = enabled) {
+                                vm.start(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            }
+                        }
                     }
                 },
                 {

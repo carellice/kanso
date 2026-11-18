@@ -274,6 +274,13 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun view(uri: Uri) = start(Intent(Intent.ACTION_VIEW, uri))
 
+    /** Doppio tocco in Home: spegne lo schermo, o porta alle impostazioni di accessibilità se il servizio è spento. */
+    fun lockScreen() {
+        if (app.kanso.data.LockService.lock()) return
+        toast("Attiva «Kanso» tra i servizi di accessibilità")
+        start(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
     fun start(intent: Intent, options: Bundle? = null) {
         try {
             // Android ignora le animazioni personalizzate tra app diverse (e mette lo scorrimento laterale):
