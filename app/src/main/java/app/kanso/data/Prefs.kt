@@ -9,6 +9,7 @@ import java.security.SecureRandom
 
 /** Stile grafico: Kanso (piatto), skeuomorfismo, Modern UI (Windows Phone), Nothing, Dueffe. */
 enum class Style { KANSO, SKEUO, METRO, NOTHING, DUEFFE }
+enum class Theme { SYSTEM, LIGHT, DARK }
 
 enum class LockMode(val title: String, val hint: String) {
     NONE("Nessuno", "Impostazioni e Home sempre modificabili"),
@@ -35,6 +36,8 @@ class Prefs(context: Context) {
         sp.getString("style", null)?.let { runCatching { Style.valueOf(it) }.getOrNull() }
             ?: if (sp.getBoolean("skeuo", false)) Style.SKEUO else Style.KANSO,
     ); private set
+    // Di default scuro, com'era prima che si potesse scegliere.
+    var theme by mutableStateOf(sp.getString("theme", null)?.let { runCatching { Theme.valueOf(it) }.getOrNull() } ?: Theme.DARK); private set
     var lockMode by mutableStateOf(LockMode.valueOf(sp.getString("lockMode", LockMode.NONE.name)!!)); private set
     // Chi aggiorna da una versione precedente ha già delle preferenze: niente presentazione.
     var onboarded by mutableStateOf(sp.getBoolean("onboarded", sp.all.isNotEmpty())); private set
@@ -84,6 +87,7 @@ class Prefs(context: Context) {
     fun saveFrictionSeconds(v: Int) { frictionSeconds = v; sp.edit().putInt("frictionSeconds", v).apply() }
     fun saveMonochrome(v: Boolean) { monochrome = v; sp.edit().putBoolean("monochrome", v).apply() }
     fun saveStyle(v: Style) { style = v; sp.edit().putString("style", v.name).apply() }
+    fun saveTheme(v: Theme) { theme = v; sp.edit().putString("theme", v.name).apply() }
     fun saveShowClock(v: Boolean) { showClock = v; sp.edit().putBoolean("showClock", v).apply() }
     fun saveShowTorch(v: Boolean) { showTorch = v; sp.edit().putBoolean("showTorch", v).apply() }
     fun saveShowRinger(v: Boolean) { showRinger = v; sp.edit().putBoolean("showRinger", v).apply() }

@@ -97,7 +97,7 @@ fun Modifier.backdrop(cloth: Boolean = false, stitched: Boolean = !cloth): Modif
     // Nothing: nero OLED con la griglia di punti appena visibile, la firma della matrice.
     K.nothing -> background(K.Ink).drawBehind {
         val step = 16.dp.toPx()
-        val dot = Color.White.copy(alpha = 0.09f)
+        val dot = K.Paper.copy(alpha = 0.09f)
         var y = step / 2
         while (y < size.height) {
             var x = step / 2
@@ -113,13 +113,14 @@ fun Modifier.backdrop(cloth: Boolean = false, stitched: Boolean = !cloth): Modif
     !K.skeuo -> background(K.Ink)
     else -> drawBehind {
         if (cloth) {
-            drawRect(Color(0xFF2A221B))
+            drawRect(Color(if (K.light()) 0xFFE8DCC6 else 0xFF2A221B))
             drawRect(linenBrush)
         } else {
-            drawRect(Brush.radialGradient(listOf(Color(0xFF5A3D27), Color(0xFF2A1C11)), Offset(size.width / 2, size.height * 0.35f), size.maxDimension * 0.75f))
+            val (top, bottom) = if (K.light()) Color(0xFFE2C79E) to Color(0xFFB8925F) else Color(0xFF5A3D27) to Color(0xFF2A1C11)
+            drawRect(Brush.radialGradient(listOf(top, bottom), Offset(size.width / 2, size.height * 0.35f), size.maxDimension * 0.75f))
             leather()
         }
-        drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)), center, size.maxDimension * 0.72f))
+        drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = if (K.light()) 0.25f else 0.55f)), center, size.maxDimension * 0.72f))
         if (stitched) stitch(9.dp, 34.dp, K.Shu.copy(alpha = 0.55f))
     }
 }
@@ -150,7 +151,8 @@ fun Modifier.skin(
     else clip(shape).background(Brush.verticalGradient(listOf(color, lerp(color, K.Ink, 0.45f)))).border(1.dp, border, shape)
     !K.skeuo -> clip(shape).background(color).border(1.dp, border, shape)
     inset -> clip(shape)
-        .background(Brush.verticalGradient(listOf(lerp(color, Color.Black, 0.55f), lerp(color, Color.Black, 0.3f))))
+        // Sul cuoio chiaro l'incasso resta chiaro, altrimenti il testo scuro non si legge.
+        .background(Brush.verticalGradient(if (K.light()) listOf(lerp(color, Color.Black, 0.12f), lerp(color, Color.White, 0.2f)) else listOf(lerp(color, Color.Black, 0.55f), lerp(color, Color.Black, 0.3f))))
         .drawWithContent {
             drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent), endY = 8.dp.toPx()))
             drawContent()

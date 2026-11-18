@@ -111,6 +111,11 @@ fun SettingsSheet(vm: KansoViewModel) {
                     }
                 },
                 {
+                    Section("Tema") {
+                        Segmented(listOf("Sistema", "Chiaro", "Scuro"), p.theme.ordinal) { p.saveTheme(app.kanso.data.Theme.entries[it]) }
+                    }
+                },
+                {
                     Section("Home") {
                         Row_("Modifica riquadri", "Aggiungi, togli e riordina le app della Home") {
                             vm.settingsOpen = false; vm.editing = true

@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -36,22 +37,29 @@ object K {
     /** Dueffe: fondo quasi nero, superfici calde a gradiente, testo avorio e un solo accento oro. */
     val dueffe get() = style() == Style.DUEFFE
 
+    /** Tema chiaro scelto nelle impostazioni (o dal sistema): ogni stile ha anche la sua versione chiara. */
+    var light: () -> Boolean = { false }
+
     private fun pick(kanso: Long, skeuo: Long, metro: Long, nothing: Long, dueffe: Long) =
         Color(when (style()) { Style.KANSO -> kanso; Style.SKEUO -> skeuo; Style.METRO -> metro; Style.NOTHING -> nothing; Style.DUEFFE -> dueffe })
+    /** Prima la riga scura, poi quella chiara, nello stesso ordine di stili. */
+    private fun pick(dark: LongArray, light: LongArray) = (if (light()) light else dark).let { pick(it[0], it[1], it[2], it[3], it[4]) }
+    private fun l(vararg v: Long) = v
 
-    val Ink get() = pick(0xFF0E0D0B, 0xFF1F150E, 0xFF000000, 0xFF000000, 0xFF050505)
-    val Surface get() = pick(0xFF171512, 0xFF3D2A1C, 0xFF1A1A1A, 0xFF111111, 0xFF11100D)
-    val SurfaceHigh get() = pick(0xFF201D19, 0xFF4A3423, 0xFF262626, 0xFF1A1A1A, 0xFF1A1711)
-    val SurfaceHigher get() = pick(0xFF2A2621, 0xFF5A402B, 0xFF333333, 0xFF333333, 0xFF242016)
-    val Paper get() = pick(0xFFF1E9DA, 0xFFF6E9D0, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFAF0)
-    val Muted get() = pick(0xFF9A9183, 0xFFC4AD8C, 0xFFA6A6A6, 0xFF999999, 0xFFB8AA8D)
-    val Faint get() = pick(0xFF5E574D, 0xFF907859, 0xFF6B6B6B, 0xFF666666, 0xFF6E6553)
-    val Line get() = pick(0x1FF1E9DA, 0x2EF6E9D0, 0x26FFFFFF, 0xFF222222, 0x29FFDC80)
+    // Chiaro: carta washi e inchiostro sumi; cuoio naturale; bianco Windows Phone; bianco Nothing; avorio Dueffe.
+    val Ink get() = pick(l(0xFF0E0D0B, 0xFF1F150E, 0xFF000000, 0xFF000000, 0xFF050505), l(0xFFF4EEE3, 0xFFE9D9BE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFAF0))
+    val Surface get() = pick(l(0xFF171512, 0xFF3D2A1C, 0xFF1A1A1A, 0xFF111111, 0xFF11100D), l(0xFFEBE3D4, 0xFFD8BC93, 0xFFF2F2F2, 0xFFF2F2F2, 0xFFF7EEDB))
+    val SurfaceHigh get() = pick(l(0xFF201D19, 0xFF4A3423, 0xFF262626, 0xFF1A1A1A, 0xFF1A1711), l(0xFFE2D9C8, 0xFFCFB083, 0xFFE6E6E6, 0xFFE8E8E8, 0xFFF0E4CA))
+    val SurfaceHigher get() = pick(l(0xFF2A2621, 0xFF5A402B, 0xFF333333, 0xFF333333, 0xFF242016), l(0xFFD6CCB8, 0xFFC2A070, 0xFFCCCCCC, 0xFFCCCCCC, 0xFFE6D6B4))
+    val Paper get() = pick(l(0xFFF1E9DA, 0xFFF6E9D0, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFAF0), l(0xFF1C1915, 0xFF2B1D12, 0xFF000000, 0xFF000000, 0xFF1A1508))
+    val Muted get() = pick(l(0xFF9A9183, 0xFFC4AD8C, 0xFFA6A6A6, 0xFF999999, 0xFFB8AA8D), l(0xFF6B6357, 0xFF6E5236, 0xFF595959, 0xFF666666, 0xFF6E6248))
+    val Faint get() = pick(l(0xFF5E574D, 0xFF907859, 0xFF6B6B6B, 0xFF666666, 0xFF6E6553), l(0xFFA39A8C, 0xFF9C8262, 0xFF999999, 0xFF999999, 0xFFA89A7A))
+    val Line get() = pick(l(0x1FF1E9DA, 0x2EF6E9D0, 0x26FFFFFF, 0xFF222222, 0x29FFDC80), l(0x1F1C1915, 0x2E2B1D12, 0x26000000, 0xFFE0E0E0, 0x29A07800))
     /** Metro: il cobalto dell'accento di Windows Phone. Nothing: il rosso segnale, solo per ciò che è urgente. Dueffe: l'oro. */
-    val Shu get() = pick(0xFFD9623B, 0xFFE2AE52, 0xFF1BA1E2, 0xFFD71921, 0xFFFFD84D)
-    val Matcha get() = pick(0xFFA9B78F, 0xFF9FC27A, 0xFF8CBF26, 0xFF4A9E5C, 0xFFA8F0B0)
+    val Shu get() = pick(l(0xFFD9623B, 0xFFE2AE52, 0xFF1BA1E2, 0xFFD71921, 0xFFFFD84D), l(0xFFC4502A, 0xFFA8741F, 0xFF1BA1E2, 0xFFD71921, 0xFFB98500))
+    val Matcha get() = pick(l(0xFFA9B78F, 0xFF9FC27A, 0xFF8CBF26, 0xFF4A9E5C, 0xFFA8F0B0), l(0xFF6E8250, 0xFF5E8A3A, 0xFF60A917, 0xFF3A8A4C, 0xFF3E9A4E))
     /** Errori: l'accento, tranne in Dueffe dove l'oro non può dire "sbagliato". */
-    val Alert get() = if (dueffe) Color(0xFFFF9B85) else Shu
+    val Alert get() = if (dueffe) Color(if (light()) 0xFFC0392B else 0xFFFF9B85) else Shu
 }
 
 /** Token Dueffe senza equivalente negli altri stili. */
@@ -85,7 +93,7 @@ private fun inter(weight: Int) = Font(R.font.inter, FontWeight(weight), variatio
 val Serif = FontFamily(Font(R.font.serif))
 val Sans = FontFamily(inter(300), inter(400), inter(500), inter(600))
 
-private fun typography(skeuo: Boolean) = Typography(
+private fun typography(skeuo: Boolean) = (if (K.light()) Letterpress else Emboss).let { Emboss -> Typography(
     displayLarge = TextStyle(shadow = if (skeuo) Emboss else null, fontFamily = Serif, fontSize = 56.sp, lineHeight = 60.sp, letterSpacing = (-0.01).em),
     headlineLarge = TextStyle(shadow = if (skeuo) Emboss else null, fontFamily = Serif, fontSize = 38.sp, lineHeight = 44.sp),
     headlineMedium = TextStyle(shadow = if (skeuo) Emboss else null, fontFamily = Serif, fontSize = 28.sp, lineHeight = 34.sp),
@@ -96,7 +104,7 @@ private fun typography(skeuo: Boolean) = Typography(
     labelLarge = TextStyle(shadow = if (skeuo) Emboss else null, fontFamily = Sans, fontWeight = FontWeight(500), fontSize = 15.sp, letterSpacing = 0.01.em),
     labelMedium = TextStyle(shadow = if (skeuo) Emboss else null, fontFamily = Sans, fontWeight = FontWeight(500), fontSize = 12.sp, letterSpacing = 0.02.em),
     labelSmall = TextStyle(shadow = if (skeuo) Emboss else null, fontFamily = Sans, fontWeight = FontWeight(600), fontSize = 11.sp, letterSpacing = 0.16.em),
-)
+) }
 
 /** Metro: un solo carattere, sottile e grande nei titoli, come Segoe WP. */
 private val metroTypography = Typography(
@@ -155,11 +163,17 @@ private val dueffeTypography = Typography(
 
 /** Lettere in rilievo che proiettano un'ombra sul cuoio. */
 private val Emboss = Shadow(Color(0xB0000000), Offset(0f, 2f), 3f)
+/** Sul cuoio chiaro le lettere sono impresse: un filo di luce sotto. */
+private val Letterpress = Shadow(Color(0x80FFFFFF), Offset(0f, 1.5f), 1f)
 
 @Composable
 fun KansoTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = darkColorScheme(
+        colorScheme = if (K.light()) lightColorScheme(
+            background = K.Ink, surface = K.Surface, surfaceContainer = K.Surface, surfaceContainerHigh = K.SurfaceHigh,
+            onBackground = K.Paper, onSurface = K.Paper, onSurfaceVariant = K.Muted,
+            primary = K.Paper, onPrimary = K.Ink, secondary = K.Shu, outline = K.Line, error = K.Alert,
+        ) else darkColorScheme(
             background = K.Ink, surface = K.Surface, surfaceContainer = K.Surface, surfaceContainerHigh = K.SurfaceHigh,
             onBackground = K.Paper, onSurface = K.Paper, onSurfaceVariant = K.Muted,
             primary = K.Paper, onPrimary = K.Ink, secondary = K.Shu, outline = K.Line, error = K.Alert,
