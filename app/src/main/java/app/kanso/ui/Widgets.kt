@@ -82,30 +82,44 @@ fun WidgetsSection(vm: KansoViewModel) {
 @Composable
 private fun WidgetPicker(vm: KansoViewModel, onDismiss: () -> Unit, onPick: (AppWidgetProviderInfo) -> Unit) {
     val context = LocalContext.current
-    val providers = remember {
+    // App (nome) -> widget (info, nome), in ordine alfabetico.
+    val groups = remember {
         val pm = context.packageManager
-        val apps = vm.byPkg
         Widgets.manager(context).installedProviders
-            .map { it to it.loadLabel(pm) }
-            .sortedWith(compareBy({ apps[it.first.provider.packageName]?.label?.lowercase() ?: it.first.provider.packageName }, { it.second.lowercase() }))
+            .groupBy { it.provider.packageName }
+            .map { (pkg, list) -> Triple(pkg, vm.byPkg[pkg]?.label ?: pkg, list.map { it to it.loadLabel(pm) }.sortedBy { it.second.lowercase() }) }
+            .sortedBy { it.second.lowercase() }
+    }
+    var query by remember { mutableStateOf("") }
+    val q = query.trim().lowercase()
+    // Cerca per nome dell'app; se il testo è nel nome del widget, mostra solo quei widget.
+    val shown = groups.mapNotNull { (pkg, app, widgets) ->
+        when {
+            q.isEmpty() || q in app.lowercase() -> Triple(pkg, app, widgets)
+            else -> widgets.filter { q in it.second.lowercase() }.takeIf { it.isNotEmpty() }?.let { Triple(pkg, app, it) }
+        }
     }
     ModalCard(onDismiss) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Eyebrow("Aggiungi widget")
             Spacer(Modifier.height(8.dp))
-            if (providers.isEmpty()) Text("Nessun widget disponibile", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
-            providers.forEach { (info, label) ->
-                val pkg = info.provider.packageName
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).pressable(pressedScale = 0.98f) { onPick(info) }.padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AppIcon(vm.appsRepo, pkg, 32.dp, monochrome = vm.prefs.monochrome)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(label, style = MaterialTheme.typography.titleMedium, color = K.Paper, maxLines = 1)
-                        Text(vm.byPkg[pkg]?.label ?: pkg, style = MaterialTheme.typography.labelMedium, color = K.Muted, maxLines = 1)
-                    }
+            if (groups.isNotEmpty()) FieldBox(query, { query = it }, "Cerca un'app")
+            if (shown.isEmpty()) Text(
+                if (groups.isEmpty()) "Nessun widget disponibile" else "Nessun risultato",
+                style = MaterialTheme.typography.bodyMedium, color = K.Muted,
+            )
+            shown.forEach { (pkg, app, widgets) ->
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AppIcon(vm.appsRepo, pkg, 28.dp, monochrome = vm.prefs.monochrome)
+                    Spacer(Modifier.width(12.dp))
+                    Text(app, style = MaterialTheme.typography.labelMedium, color = K.Muted, maxLines = 1)
+                }
+                widgets.forEach { (info, label) ->
+                    Text(
+                        label, style = MaterialTheme.typography.titleMedium, color = K.Paper, maxLines = 1,
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).pressable(pressedScale = 0.98f) { onPick(info) }
+                            .padding(start = 40.dp, top = 8.dp, bottom = 8.dp),
+                    )
                 }
             }
         }
