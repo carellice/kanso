@@ -240,16 +240,21 @@ private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean) {
             Column(Modifier.weight(1f).pressable(pressedScale = 0.97f) { vm.start(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }) {
                 // In orizzontale l'altezza è poca: l'ora si rimpicciolisce per lasciare posto all'agenda.
                 val size = if (landscape) 64 else 84
-                Text(time, style = MaterialTheme.typography.displayLarge.copy(fontSize = size.sp, lineHeight = (size + 4).sp), color = K.Paper)
+                Text(time, style = MaterialTheme.typography.displayLarge.copy(fontSize = size.sp, lineHeight = (size + 4).sp), color = K.Paper, maxLines = 1, softWrap = false)
                 Eyebrow(date)
             }
         }
         val chips = @Composable { chronos.take(2).forEach { ChronoChip(it, now) { vm.launch(it.pkg) } } }
         val buttons = @Composable {
-            if (toggles) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val content = @Composable {
                 if (vm.prefs.showTorch) TorchButton()
                 if (vm.prefs.showRinger) RingerButton(vm)
                 if (vm.prefs.showRotation) RotationButton(vm)
+            }
+            // In verticale accanto all'orologio, in riga rubano larghezza all'ora e la mandano a capo: vanno in colonna.
+            if (toggles) {
+                if (vm.prefs.showClock && !landscape) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+                else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { content() }
             }
         }
         // Accanto all'orologio in colonna, coi pulsanti sotto; da soli, in riga coi pulsanti a destra.
