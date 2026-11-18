@@ -209,30 +209,27 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         }
         val now = System.currentTimeMillis()
         val todayKey = app.kanso.data.dayKey(now, false)
-        val cached = prefs.agendaSummary?.takeIf { prefs.agendaSummaryDay == todayKey }
+        // Il vecchio formato (righe «Oggi: …») non inizia con la data: si rifà.
+        val cached = prefs.agendaSummary?.takeIf { prefs.agendaSummaryDay == todayKey && it.firstOrNull()?.isDigit() == true }
         agendaSummary = cached
         if (!force && cached != null && now - prefs.agendaSummaryAt < AGENDA_SUMMARY_EVERY) return
         if (agendaSummarizing) return
         val until = app.kanso.data.dayKey(now + 7 * 86_400_000L, false)
         val day = SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN)
         val time = SimpleDateFormat("HH:mm", Locale.ITALIAN)
-        val digest = agenda.filter { it.day < until }.take(40).joinToString("\n") { e ->
+        val events = agenda.filter { it.day < until }.take(40)
+        // Impegni numerati: il giorno di ogni riga lo decide l'app dal numero, non l'AI (che a volte li spostava).
+        val digest = events.withIndex().joinToString("\n") { (i, e) ->
             val date = Calendar.getInstance().apply { set(e.day / 10000, e.day / 100 % 100 - 1, e.day % 100) }.time
-            // L'etichetta (Oggi, Domani, Giovedì) è quella con cui la Home abbina la frase alla pagina del giorno.
-            val label = when (e.day) {
-                app.kanso.data.dayKey(now, false) -> "Oggi"
-                app.kanso.data.dayKey(now + 86_400_000L, false) -> "Domani"
-                else -> SimpleDateFormat("EEEE", Locale.ITALIAN).format(date).replaceFirstChar { it.uppercase() }
-            }
-            val d = "$label (${SimpleDateFormat("d MMMM", Locale.ITALIAN).format(date)})"
+            val d = SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN).format(date)
             val t = if (e.allDay) "tutto il giorno" else "${time.format(Date(e.begin))}-${time.format(Date(e.end))}"
-            "$d, $t: ${e.title}" + if (e.location.isNotBlank()) " (${e.location})" else ""
+            "${i + 1}. $d, $t: ${e.title}" + if (e.location.isNotBlank()) " (${e.location})" else ""
         }
         val today = day.format(Date(now))
         if (digest.isBlank()) return
         agendaSummarizing = true
         // In caso di errore resta il riassunto precedente (o gli impegni); si riprova al prossimo ritorno in Home.
-        runCatching { Summarizer.summarizeAgenda(prefs.cfAccount, prefs.cfToken, today, digest) }
+        runCatching { agendaLines(Summarizer.summarizeAgenda(prefs.cfAccount, prefs.cfToken, today, digest), events) }
             .onSuccess { agendaSummary = it; prefs.saveAgendaSummary(it, now, todayKey) }
             .onFailure { if (force) toast("Riassunto non riuscito: ${it.message}") }
         agendaSummarizing = false
@@ -385,4 +382,28 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissSummary() { summary = SummaryState.Idle }
 
     fun toast(text: String) = Toast.makeText(ctx, text, Toast.LENGTH_SHORT).show()
+}
+
+private val AgendaLine = Regex("""^(\d+(?:\s*,\s*\d+)*)\s*[:.)\-]\s*(.+)$""")
+
+/**
+ * Dalle righe dell'AI («3: 10:30 dentista», «4,5: compleanni di …») alle righe salvate «giorno\tcolore\ttesto»:
+ * giorno e colore vengono dall'impegno col primo numero. Gli impegni che l'AI ha saltato si aggiungono col titolo.
+ */
+internal fun agendaLines(ai: String, events: List<app.kanso.data.AgendaEvent>): String {
+    val covered = mutableSetOf<Int>()
+    val out = mutableListOf<Pair<Int, String>>()
+    ai.lines().map { it.trim().trimStart('-', '•', '*', ' ') }.forEach { line ->
+        val m = AgendaLine.find(line) ?: return@forEach
+        val idx = m.groupValues[1].split(',').mapNotNull { it.trim().toIntOrNull()?.minus(1) }.filter { it in events.indices }
+        if (idx.isEmpty()) return@forEach
+        covered += idx
+        out += idx.first() to m.groupValues[2].trim()
+    }
+    events.indices.filter { it !in covered }.forEach { i ->
+        val e = events[i]
+        val t = if (e.allDay) "" else SimpleDateFormat("HH:mm", Locale.ITALIAN).format(Date(e.begin)) + " "
+        out += i to t + e.title + if (e.location.isNotBlank()) " (${e.location})" else ""
+    }
+    return out.sortedBy { it.first }.joinToString("\n") { (i, text) -> "${events[i].day}\t${events[i].color}\t$text" }
 }

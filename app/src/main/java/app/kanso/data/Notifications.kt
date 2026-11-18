@@ -156,15 +156,14 @@ object Summarizer {
         "Non scrivere mai righe per dire che non ci sono notifiche, che non ci sono altre notifiche importanti " +
         "o che non c'è nulla da leggere: se un'app non ha niente da dire, non scrivere nessuna riga per lei."
 
-    private const val AGENDA = "Sei l'assistente di un launcher. Riassumi in italiano gli impegni giorno per giorno, " +
-        "sempre con lo stesso livello di dettaglio. Per OGNI giorno che ha impegni scrivi una sola riga, e nessuna riga " +
-        "per i giorni senza impegni. La riga inizia con l'etichetta del giorno esattamente come appare negli impegni " +
-        "prima della parentesi (Oggi, Domani, Giovedì…), poi due punti. Dopo elenca TUTTI gli impegni di quel giorno, " +
-        "nessuno escluso, in ordine di orario, separati da punto e virgola: per ognuno orario di inizio, cosa è e il luogo " +
-        "tra parentesi se c'è. Gli impegni di tutto il giorno vanno all'inizio, senza orario. Raggruppa gli impegni simili " +
-        "dello stesso giorno: più compleanni diventano «compleanni di Marco, Anna e Luca», più turni o lezioni uguali " +
-        "si scrivono una volta con tutti gli orari. Niente commenti, consigli o frasi di contorno, niente markdown. " +
-        "Esempio: Domani: compleanni di Marco e Anna; 10:30 dentista (via Roma 3, Milano); 18:00 palestra (FitLife)."
+    private const val AGENDA = "Sei l'assistente di un launcher. Riscrivi in italiano ogni impegno in forma breve e " +
+        "chiara, una riga per impegno, nello stesso ordine e sempre con lo stesso livello di dettaglio. Ogni riga inizia " +
+        "con il numero dell'impegno e due punti, poi l'orario di inizio, cosa è (poche parole, senza ripetere il giorno) " +
+        "e il luogo tra parentesi se c'è. Gli impegni di tutto il giorno non hanno orario. Non cambiare i numeri e non " +
+        "saltare impegni. Puoi unire in una riga sola impegni simili dello STESSO giorno, con i numeri separati da virgola: " +
+        "più compleanni diventano «compleanni di Marco e Anna», più turni uguali si scrivono una volta con tutti gli orari. " +
+        "Niente commenti, consigli o frasi di contorno, niente markdown.\n" +
+        "Esempio:\n1,2: compleanni di Marco e Anna\n3: 10:30 dentista (via Roma 3, Milano)\n4: 18:00 palestra (FitLife)"
 
     suspend fun summarize(account: String, token: String, notes: List<Note>): String {
         // Già raggruppate: un blocco per app, una riga per conversazione, dalla più recente.
@@ -181,7 +180,7 @@ object Summarizer {
         )
     }
 
-    /** [digest]: un evento per riga, già con giorno e orario leggibili. */
+    /** [digest]: un evento per riga, numerato, già con giorno e orario leggibili. */
     suspend fun summarizeAgenda(account: String, token: String, today: String, digest: String) =
         run(account, token, AGENDA, "Oggi è $today. Impegni:\n$digest", maxTokens = 1200, temperature = 0.0)
 

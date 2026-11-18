@@ -48,4 +48,12 @@ class LogicTest {
         assertEquals(null, shiftEnd(mon.atTime(21, 59), shifts))
         assertEquals(null, shiftEnd(mon.atTime(10, 0)) { shiftOn(it, WorkMode.NONE, 0b1111111, Shift(0, 1440), emptyMap()) })
     }
+
+    @Test fun agendaSummaryKeepsEachEventOnItsDay() {
+        fun ev(day: Int, title: String, color: Int) = AgendaEvent(0, title, 0, 0, true, color, "", day)
+        val events = listOf(ev(20261120, "Cena", 1), ev(20261121, "Compleanno Anna", 2), ev(20261121, "Compleanno Luca", 2))
+        // L'AI scrive solo i numeri: il giorno viene dall'impegno, quello saltato (1) torna col titolo.
+        val out = app.kanso.agendaLines("2,3: compleanni di Anna e Luca\nsenza numero", events)
+        assertEquals("20261120\t1\tCena\n20261121\t2\tcompleanni di Anna e Luca", out)
+    }
 }

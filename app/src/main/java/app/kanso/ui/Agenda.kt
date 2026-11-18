@@ -11,6 +11,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.runtime.setValue
@@ -90,7 +92,7 @@ private const val PEEK = 3
 private const val PEEK_DAYS = 7
 
 /**
- * L'agenda in piccolo, sotto l'orologio: una card di altezza fissa con una pagina per giorno (prossimi 7 giorni),
+ * L'agenda in piccolo, sotto l'orologio: una card con una pagina per giorno (prossimi 7 giorni), alta quanto la pagina,
  * da scorrere in orizzontale. Con Cloudflare configurato ogni pagina è il riassunto AI del giorno; senza, gli impegni.
  * Un tocco apre l'agenda intera.
  */
@@ -106,14 +108,17 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
     val lines = remember(vm.agendaSummary) { summaryLines(vm.agendaSummary) }
     val ai = vm.prefs.cfAccount.isNotBlank() && vm.prefs.cfToken.isNotBlank()
     val shape = RoundedCornerShape(24.dp)
-    // La card ha la stessa altezza per tutte le pagine: quella della pagina più lunga. I pallini restano in fondo,
-    // così si scorre sempre nello stesso punto.
+    // La card è alta quanto la pagina che si sta guardando: un giorno con pochi impegni lascia spazio ai riquadri.
     val density = LocalDensity.current
-    var tallest by remember(days, lines, ai) { mutableIntStateOf(0) }
-    val cardHeight = maxOf(168.dp, with(density) { tallest.toDp() } + 25.dp)
+    val heights = remember(days, lines, ai) { mutableStateMapOf<Int, Int>() }
+    var current by remember { mutableIntStateOf(0) }
+    val cardHeight by animateDpAsState(
+        if (!vm.hasCalendarAccess || days.isEmpty()) 72.dp else with(density) { (heights[current] ?: 0).toDp() } + 25.dp,
+        Motion.soft(), label = "agendaHeight",
+    )
     Column(modifier.fillMaxWidth()) {
     Box(
-        Modifier.fillMaxWidth().height(cardHeight).animateContentSize(Motion.soft()).skin(shape, stitched = 24.dp),
+        Modifier.fillMaxWidth().height(cardHeight).skin(shape, stitched = 24.dp),
     ) {
         if (!vm.hasCalendarAccess || days.isEmpty()) {
             Text(
@@ -124,6 +129,7 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
             return@Box
         }
         val pager = rememberPagerState { days.size }
+        LaunchedEffect(pager.currentPage) { current = pager.currentPage }
         Column(Modifier.fillMaxSize()) {
             // Tutte le pagine composte subito: così si misurano tutte e si conosce la più lunga.
             HorizontalPager(
@@ -132,11 +138,11 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
                 val (day, events) = days[page]
                 val title = dayTitle(day, today, tomorrow)
                 // La frase del riassunto si abbina alla pagina dal giorno con cui inizia (Oggi, Domani, Giovedì…).
-                val line = lines.firstOrNull { (label, _) -> label != null && plain(label.substringBefore(' ')) == plain(title.substringBefore(' ')) }?.second
+                val dayLines = lines.filter { it.day == day }
                 Column(
                     Modifier.fillMaxWidth()
                         .wrapContentHeight(Alignment.Top, unbounded = true)
-                        .onSizeChanged { if (it.height > tallest) tallest = it.height }
+                        .onSizeChanged { heights[page] = it.height }
                         .pressable(pressedScale = 0.98f, onClick = open).padding(start = 20.dp, end = 20.dp, top = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -150,11 +156,18 @@ fun AgendaPeek(vm: KansoViewModel, modifier: Modifier = Modifier) {
                         if (ai) RegenerateButton(vm)
                     }
                     // Con l'AI la pagina è il riassunto; finché non arriva (o se fallisce) restano gli impegni.
-                    // Il riassunto si legge sempre intero: la card cresce e i riquadri della Home si rimpiccioliscono.
-                    if (ai && line != null) Text(
-                        highlightTimes(line), style = MaterialTheme.typography.bodyMedium, color = K.Paper.copy(alpha = 0.85f),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                    ) else {
+                    // Il riassunto si legge sempre intero, un impegno per riga: la card cresce quanto serve.
+                    if (ai && dayLines.isNotEmpty()) Column(
+                        Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        dayLines.forEach { l ->
+                            Row {
+                                Box(Modifier.padding(top = 3.dp).width(3.dp).height(14.dp).clip(CircleShape).background(Color(l.color).copy(alpha = 0.9f)))
+                                Spacer(Modifier.width(10.dp))
+                                Text(highlightTimes(l.text), style = MaterialTheme.typography.bodyMedium, color = K.Paper.copy(alpha = 0.85f))
+                            }
+                        }
+                    } else {
                         events.take(PEEK).forEach { e ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.width(3.dp).height(16.dp).clip(CircleShape).background(Color(e.color).copy(alpha = 0.9f)))
@@ -239,15 +252,14 @@ private fun RegenerateButton(vm: KansoViewModel) {
     )
 }
 
-/** Minuscolo e senza accenti: «Giovedi» e «giovedì» sono lo stesso giorno. */
-private fun plain(s: String) = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase()
+private class SummaryLine(val day: Int, val color: Int, val text: String)
 
-/** Le righe del riassunto AI: etichetta del giorno (prima dei due punti, se breve e non un orario) e frase. */
-private fun summaryLines(text: String?): List<Pair<String?, String>> =
-    text.orEmpty().lines().map { it.trim().trimStart('-', '•', '*', ' ') }.filter { it.isNotBlank() }.map { line ->
-        val label = line.substringBefore(':', "").trim().takeIf { it.length in 1..20 && !it.last().isDigit() }
-        label to (if (label != null) line.substringAfter(':').trim() else line)
-    }
+/** Le righe salvate del riassunto AI: «giorno\tcolore\ttesto», un impegno (o un gruppo) per riga. */
+private fun summaryLines(text: String?): List<SummaryLine> = text.orEmpty().lines().mapNotNull { line ->
+    val parts = line.split('\t', limit = 3)
+    val day = parts.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
+    SummaryLine(day, parts.getOrNull(1)?.toIntOrNull() ?: 0, parts.getOrNull(2).orEmpty())
+}
 
 private val TimeRegex = Regex("""\b\d{1,2}[:.]\d{2}\b""")
 
