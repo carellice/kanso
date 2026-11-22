@@ -168,7 +168,7 @@ fun HomePage(vm: KansoViewModel) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.settingsOpen = true }
                     Spacer(Modifier.weight(1f))
-                    Text("Trascina per riordinare", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
+                    Text(if (vm.prefs.classic && !vm.showingWork) "Tocca un riquadro per le sue app" else "Trascina per riordinare", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
                     Spacer(Modifier.weight(1f))
                     PillButton("Fine", Modifier.height(44.dp)) { vm.editing = false }
                 }
@@ -194,7 +194,7 @@ fun HomePage(vm: KansoViewModel) {
             label = "workTab",
             modifier = m.fillMaxWidth(),
         ) { work ->
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TileGrid(vm, work) }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { if (vm.prefs.classic && !work) ClassicGrid(vm) else TileGrid(vm, work) }
         }
     }
     // In orizzontale due colonne: a sinistra orologio, agenda e ricerca; a destra i riquadri, alti quanto lo schermo.

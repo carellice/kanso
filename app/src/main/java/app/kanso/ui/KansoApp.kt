@@ -54,7 +54,9 @@ const val LIBRARY = 2
 
 @Composable
 fun KansoApp(vm: KansoViewModel) {
-    val pager = rememberPagerState(initialPage = HOME) { 3 }
+    // Modalità classica: niente Libreria, solo Consapevolezza e Home.
+    val pages = if (vm.prefs.classic) 2 else 3
+    val pager = rememberPagerState(initialPage = HOME) { pages }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(vm.homeSignal) { if (vm.homeSignal > 0) pager.animateScrollToPage(HOME) }
@@ -82,6 +84,8 @@ fun KansoApp(vm: KansoViewModel) {
             vm.unlock != null -> vm.cancelUnlock()
             vm.friction != null -> vm.cancelFriction()
             vm.pickerOpen -> vm.pickerOpen = false
+            vm.slotPicker != null -> vm.slotPicker = null
+            vm.hubOpen != null -> vm.hubOpen = null
             vm.settingsOpen -> vm.settingsOpen = false
             vm.agendaOpen -> vm.agendaOpen = false
             vm.notesOpen -> vm.notesOpen = false
@@ -91,7 +95,8 @@ fun KansoApp(vm: KansoViewModel) {
         }
     }
 
-    val covered = vm.searchOpen || vm.agendaOpen || vm.notesOpen || vm.settingsOpen || vm.friction != null || vm.unlock != null || vm.pickerOpen
+    val covered = vm.searchOpen || vm.agendaOpen || vm.notesOpen || vm.settingsOpen || vm.friction != null || vm.unlock != null || vm.pickerOpen ||
+        vm.hubOpen != null || vm.slotPicker != null
     val blur by animateDpAsState(if (covered) 18.dp else 0.dp, tween(420, easing = Motion.Calm), label = "blur")
     val dim by animateFloatAsState(if (covered) 0.92f else 1f, tween(420, easing = Motion.Calm), label = "dim")
 
@@ -127,7 +132,7 @@ fun KansoApp(vm: KansoViewModel) {
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(110.dp)
                     .background(Brush.verticalGradient(listOf(K.Ink.copy(alpha = 0f), K.Ink.copy(alpha = if (K.skeuo) 0.5f else 0.92f)))),
             )
-            PageDots(pager, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 14.dp))
+            PageDots(pager, pages, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 14.dp))
         }
 
         AnimatedVisibility(
@@ -160,6 +165,18 @@ fun KansoApp(vm: KansoViewModel) {
             enter = fadeIn(tween(240)) + slideInVertically(tween(480, easing = Motion.Calm)) { it / 6 },
             exit = fadeOut(tween(200)) + slideOutVertically(tween(280)) { it / 8 },
         ) { AppPicker(vm) }
+
+        AnimatedVisibility(
+            vm.hubOpen != null,
+            enter = fadeIn(tween(240)) + slideInVertically(tween(480, easing = Motion.Calm)) { it / 6 },
+            exit = fadeOut(tween(200)) + slideOutVertically(tween(280)) { it / 8 },
+        ) { vm.hubOpen?.let { SlotHub(vm, it) } }
+
+        AnimatedVisibility(
+            vm.slotPicker != null,
+            enter = fadeIn(tween(240)) + slideInVertically(tween(480, easing = Motion.Calm)) { it / 6 },
+            exit = fadeOut(tween(200)) + slideOutVertically(tween(280)) { it / 8 },
+        ) { vm.slotPicker?.let { SlotPicker(vm, it) } }
 
         AnimatedVisibility(
             vm.friction != null,
@@ -249,9 +266,9 @@ private fun Aurora(pager: PagerState) {
 }
 
 @Composable
-private fun PageDots(pager: PagerState, modifier: Modifier) {
+private fun PageDots(pager: PagerState, pages: Int, modifier: Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        repeat(3) { i ->
+        repeat(pages) { i ->
             val d = ((pager.currentPage - i) + pager.currentPageOffsetFraction).absoluteValue.coerceIn(0f, 1f)
             if (K.skeuo) Box(
                 // Fori incisi nel cuoio; quello della pagina attuale si accende d'ottone.

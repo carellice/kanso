@@ -36,6 +36,8 @@ import app.kanso.data.UsageRepository
 import app.kanso.data.WorkMode
 import app.kanso.data.shiftEnd
 import app.kanso.data.shiftOn
+import app.kanso.data.Slot
+import app.kanso.data.slotDefaults
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -80,6 +82,7 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     var agendaSummary by mutableStateOf<String?>(null); private set
     var agendaSummarizing by mutableStateOf(false); private set
     private var defaultTiles by mutableStateOf<List<String>>(emptyList())
+    private var slotDefaults by mutableStateOf<Map<Slot, List<String>>>(emptyMap())
 
     // Sovrapposizioni aperte sopra le tre pagine.
     var searchOpen by mutableStateOf(false)
@@ -88,6 +91,9 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
     var pickerOpen by mutableStateOf(false)
     var agendaOpen by mutableStateOf(false)
     var notesOpen by mutableStateOf(false)
+    /** Modalità classica: lo slot con più app di cui si mostra l'elenco, e quello di cui si scelgono le app. */
+    var hubOpen by mutableStateOf<Slot?>(null)
+    var slotPicker by mutableStateOf<Slot?>(null)
     var friction by mutableStateOf<AppEntry?>(null); private set
     var unlock by mutableStateOf<(() -> Unit)?>(null); private set
     /** Aumenta a ogni pressione del tasto Home, per tornare alla pagina centrale. */
@@ -176,6 +182,8 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         now = System.currentTimeMillis()
         apps = appsRepo.load().map { a -> prefs.categories[a.pkg]?.let { a.copy(category = it) } ?: a }
         if (defaultTiles.isEmpty()) defaultTiles = appsRepo.essentials()
+        // Ogni volta: l'utente può aver cambiato le app predefinite nelle impostazioni di Android.
+        slotDefaults = appsRepo.slotDefaults(apps.map { it.pkg }.toSet())
         refreshPrivate()
         hasUsageAccess = usageRepo.hasAccess()
         hasNotificationAccess = NoteStore.hasAccess(ctx)
@@ -245,13 +253,27 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onHomePressed() {
         searchOpen = false; settingsOpen = false; pickerOpen = false; editing = false
-        agendaOpen = false; notesOpen = false
+        agendaOpen = false; notesOpen = false; hubOpen = null; slotPicker = null
         friction = null; unlock = null
         homeSignal++
     }
 
     /** Le app della Home, e in orario di lavoro quelle di lavoro, si aprono senza attrito. */
-    fun skipsFriction(pkg: String) = pkg in tiles || (atWork && pkg in workTiles)
+    fun skipsFriction(pkg: String) = pkg in tiles || (atWork && pkg in workTiles) || (prefs.classic && Slot.entries.any { pkg in slotApps(it) })
+
+    /** Le app di uno slot: quelle scelte dall'utente, altrimenti le predefinite; solo se ancora installate. */
+    fun slotApps(slot: Slot): List<String> =
+        (prefs.slotApps[slot] ?: slotDefaults[slot].orEmpty()).filter { pkg -> apps.isEmpty() || apps.any { it.pkg == pkg } }
+
+    /** Uno slot apre la sua app; con più app mostra l'elenco; senza app fa sceglierne una. */
+    fun openSlot(slot: Slot, options: Bundle? = null) {
+        val list = slotApps(slot)
+        when (list.size) {
+            0 -> guarded { slotPicker = slot }
+            1 -> launch(list[0], options)
+            else -> hubOpen = slot
+        }
+    }
 
     /** Le app della Home si aprono subito; le altre passano dall'attrito consapevole. */
     fun open(app: AppEntry, options: Bundle? = null) {

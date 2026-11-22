@@ -121,6 +121,18 @@ fun SettingsSheet(vm: KansoViewModel) {
                             vm.settingsOpen = false; vm.editing = true
                         }
                         Divider()
+                        Toggle(
+                            "Modalità classica", "Come i telefoni di una volta: dodici funzioni fisse e niente Libreria",
+                            p.classic, p::saveClassic,
+                        )
+                        AnimatedVisibility(p.classic) {
+                            // I numeri sui riquadri vengono dalle notifiche nel pannello.
+                            Row_(
+                                "Numeri dei non letti", if (vm.hasNotificationAccess) "Attivi" else "Consenti la lettura delle notifiche",
+                                done = vm.hasNotificationAccess,
+                            ) { vm.start(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                        }
+                        Divider()
                         Toggle("Mostra l'orologio", "Ora e data in alto nella Home", p.showClock, p::saveShowClock)
                         Divider()
                         Toggle("Pulsante torcia", "In alto nella Home, accanto all'orologio", p.showTorch, p::saveShowTorch)

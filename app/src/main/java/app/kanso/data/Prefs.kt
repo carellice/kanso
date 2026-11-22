@@ -44,6 +44,16 @@ class Prefs(context: Context) {
     /** Widget che non scorrono: il trascinamento muove la pagina. */
     var fixedWidgets by mutableStateOf(sp.getString("fixedWidgets", "")!!.split(',').mapNotNull { it.toIntOrNull() }.toSet()); private set
     var doubleTapLock by mutableStateOf(sp.getBoolean("doubleTapLock", false)); private set
+    /** Modalità classica: la Home a funzioni fisse e niente Libreria. */
+    var classic by mutableStateOf(sp.getBoolean("classic", false)); private set
+    /** App scelte a mano per gli slot della modalità classica; gli slot assenti usano le app predefinite. */
+    var slotApps by mutableStateOf(
+        sp.getString("slotApps", "")!!.split(';').mapNotNull { e ->
+            val (key, pkgs) = e.split('=').takeIf { it.size == 2 } ?: return@mapNotNull null
+            val slot = Slot.entries.firstOrNull { it.key == key } ?: return@mapNotNull null
+            slot to pkgs.split('|').filter { it.isNotBlank() }
+        }.toMap(),
+    ); private set
     // Prima c'era solo l'interruttore "skeuo": chi lo aveva acceso resta sullo skeuomorfismo.
     var style by mutableStateOf(
         sp.getString("style", null)?.let { runCatching { Style.valueOf(it) }.getOrNull() }
@@ -120,6 +130,12 @@ class Prefs(context: Context) {
     fun saveWidgetHeight(id: Int, dp: Int) {
         widgetHeights = widgetHeights + (id to dp)
         sp.edit().putString("widgetHeights", widgetHeights.entries.joinToString(",") { "${it.key}=${it.value}" }).apply()
+    }
+    fun saveClassic(v: Boolean) { classic = v; sp.edit().putBoolean("classic", v).apply() }
+    /** [pkgs] null: lo slot torna alle app predefinite. */
+    fun saveSlotApps(slot: Slot, pkgs: List<String>?) {
+        slotApps = if (pkgs == null) slotApps - slot else slotApps + (slot to pkgs)
+        sp.edit().putString("slotApps", slotApps.entries.joinToString(";") { "${it.key.key}=${it.value.joinToString("|")}" }).apply()
     }
     fun saveDoubleTapLock(v: Boolean) { doubleTapLock = v; sp.edit().putBoolean("doubleTapLock", v).apply() }
     fun saveOnboarded(v: Boolean = true) { onboarded = v; sp.edit().putBoolean("onboarded", v).apply() }

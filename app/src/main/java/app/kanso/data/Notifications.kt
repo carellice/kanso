@@ -6,6 +6,9 @@ import android.content.Context
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -26,6 +29,7 @@ class NotificationCollector : NotificationListenerService() {
         instance = this
         val active = runCatching { activeNotifications }.getOrNull() ?: return
         Chrono.sync(this, active)
+        recount(active)
         // Quelle tolte mentre Kanso non ascoltava escono dal riassunto.
         NoteStore.keep(this, active.map { it.key }.toSet())
     }
@@ -33,6 +37,7 @@ class NotificationCollector : NotificationListenerService() {
     override fun onListenerDisconnected() {
         instance = null
         Chrono.clear()
+        unread = emptyMap()
         // Android a volte stacca il servizio (dopo un aggiornamento, per memoria): si chiede subito di ricollegarlo.
         rebind(this)
     }
@@ -40,15 +45,25 @@ class NotificationCollector : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         Chrono.remove(sbn.key)
         NoteStore.remove(this, sbn.key)
+        runCatching { recount(activeNotifications) }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         Chrono.update(this, sbn)
         toNote(this, sbn, runCatching { currentRanking }.getOrNull())?.let { NoteStore.add(this, it) }
+        runCatching { recount(activeNotifications) }
     }
 
     companion object {
         @Volatile private var instance: NotificationCollector? = null
+
+        /** Notifiche nel pannello per app (senza quelle in corso e i riepiloghi di gruppo): i numeri della modalità classica. */
+        var unread by mutableStateOf<Map<String, Int>>(emptyMap()); private set
+
+        private fun recount(active: Array<StatusBarNotification>) {
+            unread = active.filter { !it.isOngoing && (it.notification.flags and Notification.FLAG_GROUP_SUMMARY) == 0 }
+                .groupingBy { it.packageName }.eachCount()
+        }
 
         /** Le notifiche ora nel pannello; null se il servizio non è collegato. */
         fun active(): Array<StatusBarNotification>? = instance?.let { runCatching { it.activeNotifications }.getOrNull() }

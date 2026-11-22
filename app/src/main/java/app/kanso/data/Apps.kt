@@ -17,7 +17,7 @@ data class AppEntry(val pkg: String, val label: String, val category: Category)
 /** Categorie che Kanso considera a rischio distrazione: l'attesa prima dell'apertura è più lunga. */
 val DistractingCategories = setOf(Category.SOCIAL, Category.VIDEO, Category.GIOCHI, Category.SHOPPING)
 
-class AppsRepository(private val context: Context) {
+class AppsRepository(internal val context: Context) {
     private val pm = context.packageManager
     private val icons = LruCache<String, ImageBitmap>(200)
 
@@ -45,7 +45,7 @@ class AppsRepository(private val context: Context) {
     ).distinct()
 
     // "android" è il selettore di sistema: vuol dire che non c'è un'app predefinita.
-    private fun resolve(intent: Intent): String? =
+    internal fun resolve(intent: Intent): String? =
         pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName?.takeIf { it != "android" }
 
     fun launchIntent(pkg: String): Intent? = pm.getLaunchIntentForPackage(pkg)
