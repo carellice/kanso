@@ -112,7 +112,9 @@ fun HomePage(vm: KansoViewModel) {
     val tracker = remember { VelocityTracker() }
     val context = androidx.compose.ui.platform.LocalContext.current
     val hasTorch = remember { torchCamera(context) != null }
-    val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger || vm.prefs.showRotation
+    val chiarella = vm.prefs.showChiarella && CHIARELLA in vm.byPkg
+    val money = vm.prefs.showMoney && MONEY in vm.byPkg
+    val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger || vm.prefs.showRotation || chiarella || money
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val home = Modifier
         .fillMaxSize()
@@ -163,7 +165,7 @@ fun HomePage(vm: KansoViewModel) {
             label = "editBar",
             modifier = Modifier.padding(top = if (landscape) 8.dp else 20.dp).heightIn(min = 48.dp),
         ) { bar ->
-            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape)
+            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape, chiarella, money)
             else if (bar == TopBar.EDIT) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.settingsOpen = true }
@@ -225,7 +227,7 @@ private enum class TopBar { NONE, CLOCK, EDIT }
 
 /** Orologio facoltativo: ore e data, aggiornati allo scoccare di ogni minuto. Accanto, timer e cronometri attivi. */
 @Composable
-private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean) {
+private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chiarella: Boolean, money: Boolean) {
     val chronos = Chrono.active
     val now by produceState(System.currentTimeMillis(), chronos.isEmpty()) {
         while (true) {
@@ -250,10 +252,15 @@ private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean) {
                 if (vm.prefs.showTorch) TorchButton()
                 if (vm.prefs.showRinger) RingerButton(vm)
                 if (vm.prefs.showRotation) RotationButton(vm)
+                if (chiarella) ChiarellaButton(vm)
+                if (money) MoneyButton(vm)
             }
             // In verticale accanto all'orologio, in riga rubano larghezza all'ora e la mandano a capo: vanno in colonna.
             if (toggles) {
-                if (vm.prefs.showClock && !landscape) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+                // Al massimo tre per colonna: con Chiarella e Money la colonna non si allunga troppo.
+                if (vm.prefs.showClock && !landscape) androidx.compose.foundation.layout.FlowColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachColumn = 3,
+                ) { content() }
                 else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { content() }
             }
         }

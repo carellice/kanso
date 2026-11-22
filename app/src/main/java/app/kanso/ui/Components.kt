@@ -194,10 +194,10 @@ fun PillButton(
 }
 
 @Composable
-fun IconCircle(icon: ImageVector, description: String, modifier: Modifier = Modifier, active: Boolean = false, onClick: () -> Unit) {
+fun IconCircle(icon: ImageVector, description: String, modifier: Modifier = Modifier, active: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     Box(
         // Metro: il cerchio col bordo bianco dei pulsanti della app bar.
-        modifier.size(44.dp).then(if (K.metro) Modifier.border(2.dp, K.Paper, CircleShape) else Modifier.skin(CircleShape, elevation = 3.dp)).pressable(onClick = onClick),
+        modifier.size(44.dp).then(if (K.metro) Modifier.border(2.dp, K.Paper, CircleShape) else Modifier.skin(CircleShape, elevation = 3.dp)).pressable(onLongClick = onLongClick, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, description, Modifier.size(20.dp), tint = if (active) K.Shu else K.Paper) }
 }

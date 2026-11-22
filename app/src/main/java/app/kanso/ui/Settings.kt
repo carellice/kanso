@@ -140,6 +140,14 @@ fun SettingsSheet(vm: KansoViewModel) {
                         Toggle("Pulsante suoneria", "Suoneria o vibrazione con un tocco", p.showRinger, p::saveShowRinger)
                         Divider()
                         Toggle("Pulsante rotazione", "Blocca o sblocca la rotazione dello schermo", p.showRotation, p::saveShowRotation)
+                        if (CHIARELLA in vm.byPkg) {
+                            Divider()
+                            Toggle("Pulsante Chiarella", "Avvia o metti in pausa i suoni; tieni premuto per aprirla", p.showChiarella, p::saveShowChiarella)
+                        }
+                        if (MONEY in vm.byPkg) {
+                            Divider()
+                            Toggle("Pulsante Money", "Nuova spesa con un tocco; tieni premuto per aprirla", p.showMoney, p::saveShowMoney)
+                        }
                         Divider()
                         Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
                         Divider()

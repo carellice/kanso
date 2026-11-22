@@ -37,7 +37,7 @@ class NotificationCollector : NotificationListenerService() {
     override fun onListenerDisconnected() {
         instance = null
         Chrono.clear()
-        unread = emptyMap()
+        unread = emptyMap(); playing = emptySet()
         // Android a volte stacca il servizio (dopo un aggiornamento, per memoria): si chiede subito di ricollegarlo.
         rebind(this)
     }
@@ -59,10 +59,15 @@ class NotificationCollector : NotificationListenerService() {
 
         /** Notifiche nel pannello per app (senza quelle in corso e i riepiloghi di gruppo): i numeri della modalità classica. */
         var unread by mutableStateOf<Map<String, Int>>(emptyMap()); private set
+        /** App che stanno suonando (Chiarella): la notifica offre "Pausa". Il pulsante in Home si accende. */
+        var playing by mutableStateOf<Set<String>>(emptySet()); private set
 
         private fun recount(active: Array<StatusBarNotification>) {
             unread = active.filter { !it.isOngoing && (it.notification.flags and Notification.FLAG_GROUP_SUMMARY) == 0 }
                 .groupingBy { it.packageName }.eachCount()
+            // La notifica resta anche in pausa: conta solo se offre di mettere in pausa.
+            playing = active.filter { n -> n.notification.actions.orEmpty().any { it.title?.toString()?.lowercase() in setOf("pausa", "pause") } }
+                .map { it.packageName }.toSet()
         }
 
         /** Le notifiche ora nel pannello; null se il servizio non è collegato. */

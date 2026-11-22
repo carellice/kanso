@@ -16,6 +16,8 @@ import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.ScreenLockRotation
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.Euro
+import androidx.compose.material.icons.rounded.Spa
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.Handler
@@ -114,5 +116,35 @@ fun RotationButton(vm: KansoViewModel) {
             vm.toast("Consenti a Kanso di modificare le impostazioni di sistema")
             vm.start(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}")))
         } else runCatching { Settings.System.putInt(cr, Settings.System.ACCELEROMETER_ROTATION, if (auto) 0 else 1) }
+    }
+}
+
+const val CHIARELLA = "it.chiarella.app"
+const val MONEY = "com.money.app"
+
+/** Chiarella: un tocco avvia o mette in pausa l'ultimo mix, tenendo premuto si apre l'app. Acceso mentre suona. */
+@Composable
+fun ChiarellaButton(vm: KansoViewModel) {
+    val ctx = LocalContext.current
+    val playing = CHIARELLA in app.kanso.data.NotificationCollector.playing
+    IconCircle(
+        Icons.Rounded.Spa, if (playing) "Metti in pausa Chiarella" else "Avvia Chiarella",
+        active = playing, onLongClick = { vm.launch(CHIARELLA) },
+    ) {
+        // Le versioni di Chiarella senza play/pausa da fuori si aprono e basta.
+        val toggle = Intent("it.chiarella.app.TOGGLE").setPackage(CHIARELLA).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val options = android.app.ActivityOptions.makeCustomAnimation(ctx, 0, 0).toBundle()
+        runCatching { ctx.startActivity(toggle, options) }.onFailure { vm.launch(CHIARELLA) }
+    }
+}
+
+/** Money: un tocco apre il tastierino di una nuova spesa, tenendo premuto si apre l'app. */
+@Composable
+fun MoneyButton(vm: KansoViewModel) {
+    IconCircle(Icons.Rounded.Euro, "Nuova spesa su Money", onLongClick = { vm.launch(MONEY) }) {
+        // Le versioni di Money senza la rotta "add" aprono la Home: va bene lo stesso.
+        val intent = vm.appsRepo.launchIntent(MONEY) ?: return@IconCircle vm.toast("App non disponibile")
+        // CLEAR_TOP e SINGLE_TOP: se Money è già aperta la richiesta arriva lo stesso, invece di riportarla com'era.
+        vm.start(intent.putExtra("route", "add").addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
     }
 }
