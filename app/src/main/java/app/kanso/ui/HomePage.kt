@@ -116,6 +116,9 @@ fun HomePage(vm: KansoViewModel) {
     val money = vm.prefs.showMoney && MONEY in vm.byPkg
     val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger || vm.prefs.showRotation || chiarella || money
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // Modalità classica: niente Libreria, lo spazio privato si apre tenendo premuto in alto (orologio o fascia vuota).
+    var privateOpen by remember { mutableStateOf(false) }
+    val openPrivate = if (vm.prefs.classic && vm.privateUser != null) ({ privateOpen = true }) else null
     val home = Modifier
         .fillMaxSize()
         // Il gesto si legge prima dello spostamento: così il dito non "insegue" il contenuto che si muove.
@@ -165,7 +168,7 @@ fun HomePage(vm: KansoViewModel) {
             label = "editBar",
             modifier = Modifier.padding(top = if (landscape) 8.dp else 20.dp).heightIn(min = 48.dp),
         ) { bar ->
-            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape, chiarella, money)
+            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape, chiarella, money, openPrivate)
             else if (bar == TopBar.EDIT) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.settingsOpen = true }
@@ -174,7 +177,10 @@ fun HomePage(vm: KansoViewModel) {
                     Spacer(Modifier.weight(1f))
                     PillButton("Fine", Modifier.height(44.dp)) { vm.editing = false }
                 }
-            } else Spacer(Modifier.fillMaxWidth())
+            } else Spacer(
+                Modifier.fillMaxWidth().height(48.dp)
+                    .then(if (openPrivate != null) Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { openPrivate() }) } else Modifier),
+            )
         }
     }
     val agenda = @Composable { m: Modifier ->
@@ -221,13 +227,14 @@ fun HomePage(vm: KansoViewModel) {
         tiles(Modifier.weight(1f))
         SearchBar(Modifier.padding(bottom = 40.dp)) { vm.searchOpen = true }
     }
+    if (privateOpen && openPrivate != null) ModalCard({ privateOpen = false }) { PrivateSpaceContent(vm) { privateOpen = false } }
 }
 
 private enum class TopBar { NONE, CLOCK, EDIT }
 
 /** Orologio facoltativo: ore e data, aggiornati allo scoccare di ogni minuto. Accanto, timer e cronometri attivi. */
 @Composable
-private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chiarella: Boolean, money: Boolean) {
+private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chiarella: Boolean, money: Boolean, onLongPress: (() -> Unit)?) {
     val chronos = Chrono.active
     val now by produceState(System.currentTimeMillis(), chronos.isEmpty()) {
         while (true) {
@@ -239,7 +246,7 @@ private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chia
         if (vm.prefs.showClock) {
             val time = remember(now / 60_000) { SimpleDateFormat("HH:mm", Locale.ITALIAN).format(Date(now)) }
             val date = remember(now / 60_000) { SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN).format(Date(now)) }
-            Column(Modifier.weight(1f).pressable(pressedScale = 0.97f) { vm.start(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }) {
+            Column(Modifier.weight(1f).pressable(onLongPress, pressedScale = 0.97f) { vm.start(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }) {
                 // In orizzontale l'altezza è poca: l'ora si rimpicciolisce per lasciare posto all'agenda.
                 val size = if (landscape) 64 else 84
                 Text(time, style = MaterialTheme.typography.displayLarge.copy(fontSize = size.sp, lineHeight = (size + 4).sp), color = K.Paper, maxLines = 1, softWrap = false)
