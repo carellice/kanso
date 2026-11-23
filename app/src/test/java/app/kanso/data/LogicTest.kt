@@ -56,4 +56,12 @@ class LogicTest {
         val out = app.kanso.agendaLines("2,3: compleanni di Anna e Luca\nsenza numero", events)
         assertEquals("20261120\t1\tCena\n20261121\t2\tcompleanni di Anna e Luca", out)
     }
+
+    @Test fun agendaSummaryShowsRepeatedEventsOnce() {
+        fun ev(day: Int, title: String) = AgendaEvent(0, title, 0, 0, true, 1, "", day)
+        val events = listOf(ev(20261120, "Cena"), ev(20261121, "Palestra"))
+        // L'AI ripete l'impegno 1: la seconda riga si scarta.
+        val out = app.kanso.agendaLines("1: cena\n1: cena di nuovo\n2: palestra", events)
+        assertEquals("20261120\t1\tcena\n20261121\t1\tpalestra", out)
+    }
 }

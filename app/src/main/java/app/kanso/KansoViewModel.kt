@@ -225,7 +225,10 @@ class KansoViewModel(app: Application) : AndroidViewModel(app) {
         val until = app.kanso.data.dayKey(now + 7 * 86_400_000L, false)
         val day = SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN)
         val time = SimpleDateFormat("HH:mm", Locale.ITALIAN)
-        val events = agenda.filter { it.day < until }.take(40)
+        // Lo stesso impegno su più calendari (o invitato più volte) va nel riassunto una volta sola.
+        val events = agenda.filter { it.day < until }
+            .distinctBy { listOf(it.day, if (it.allDay) 0L else it.begin, it.title.trim().lowercase()) }
+            .take(40)
         // Impegni numerati: il giorno di ogni riga lo decide l'app dal numero, non l'AI (che a volte li spostava).
         val digest = events.withIndex().joinToString("\n") { (i, e) ->
             val date = Calendar.getInstance().apply { set(e.day / 10000, e.day / 100 % 100 - 1, e.day % 100) }.time
@@ -424,7 +427,8 @@ internal fun agendaLines(ai: String, events: List<app.kanso.data.AgendaEvent>): 
     val out = mutableListOf<Pair<Int, String>>()
     ai.lines().map { it.trim().trimStart('-', '•', '*', ' ') }.forEach { line ->
         val m = AgendaLine.find(line) ?: return@forEach
-        val idx = m.groupValues[1].split(',').mapNotNull { it.trim().toIntOrNull()?.minus(1) }.filter { it in events.indices }
+        val idx = m.groupValues[1].split(',').mapNotNull { it.trim().toIntOrNull()?.minus(1) }.filter { it in events.indices && it !in covered }
+        // Righe che ripetono impegni già scritti: l'AI a volte li elenca due volte.
         if (idx.isEmpty()) return@forEach
         covered += idx
         out += idx.first() to m.groupValues[2].trim()
