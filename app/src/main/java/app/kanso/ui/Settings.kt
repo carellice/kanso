@@ -148,6 +148,10 @@ fun SettingsSheet(vm: KansoViewModel) {
                             Divider()
                             Toggle("Pulsante Money", "Nuova spesa con un tocco; tieni premuto per aprirla", p.showMoney, p::saveShowMoney)
                         }
+                        if (GEMINI in vm.byPkg) {
+                            Divider()
+                            Toggle("Pulsante Gemini", "Apri Gemini con un tocco", p.showGemini, p::saveShowGemini)
+                        }
                         Divider()
                         Toggle("Icone in bianco e nero", "Nella Libreria: meno colore, meno richiamo", p.monochrome, p::saveMonochrome)
                         Divider()

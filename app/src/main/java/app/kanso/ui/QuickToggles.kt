@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.ScreenLockRotation
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.Euro
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Spa
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -121,6 +122,7 @@ fun RotationButton(vm: KansoViewModel) {
 
 const val CHIARELLA = "it.chiarella.app"
 const val MONEY = "com.money.app"
+const val GEMINI = "com.google.android.apps.bard"
 
 /** Chiarella: un tocco avvia o mette in pausa l'ultimo mix, tenendo premuto si apre l'app. Acceso mentre suona. */
 @Composable
@@ -147,4 +149,10 @@ fun MoneyButton(vm: KansoViewModel) {
         // CLEAR_TOP e SINGLE_TOP: se Money è già aperta la richiesta arriva lo stesso, invece di riportarla com'era.
         vm.start(intent.putExtra("route", "add").addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
     }
+}
+
+/** Gemini: un tocco apre l'app. */
+@Composable
+fun GeminiButton(vm: KansoViewModel) {
+    IconCircle(Icons.Rounded.AutoAwesome, "Apri Gemini") { vm.launch(GEMINI) }
 }

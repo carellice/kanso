@@ -34,6 +34,8 @@ class Prefs(context: Context) {
     /** Pulsanti di Chiarella e Money in Home: compaiono solo se le app sono installate. */
     var showChiarella by mutableStateOf(sp.getBoolean("showChiarella", true)); private set
     var showMoney by mutableStateOf(sp.getBoolean("showMoney", true)); private set
+    /** Pulsante Gemini in Home: spento finché non lo si accende, compare solo se Gemini è installata. */
+    var showGemini by mutableStateOf(sp.getBoolean("showGemini", false)); private set
     var landscape by mutableStateOf(sp.getBoolean("landscape", false)); private set
     /** Id dei widget di Android nella pagina Consapevolezza, in ordine. */
     var widgets by mutableStateOf(sp.getString("widgets", "")!!.split(',').mapNotNull { it.toIntOrNull() }); private set
@@ -119,6 +121,7 @@ class Prefs(context: Context) {
     fun saveShowRinger(v: Boolean) { showRinger = v; sp.edit().putBoolean("showRinger", v).apply() }
     fun saveShowChiarella(v: Boolean) { showChiarella = v; sp.edit().putBoolean("showChiarella", v).apply() }
     fun saveShowMoney(v: Boolean) { showMoney = v; sp.edit().putBoolean("showMoney", v).apply() }
+    fun saveShowGemini(v: Boolean) { showGemini = v; sp.edit().putBoolean("showGemini", v).apply() }
     fun saveShowRotation(v: Boolean) { showRotation = v; sp.edit().putBoolean("showRotation", v).apply() }
     fun saveLandscape(v: Boolean) { landscape = v; sp.edit().putBoolean("landscape", v).apply() }
     fun saveWidgets(list: List<Int>) {

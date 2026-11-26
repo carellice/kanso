@@ -114,7 +114,8 @@ fun HomePage(vm: KansoViewModel) {
     val hasTorch = remember { torchCamera(context) != null }
     val chiarella = vm.prefs.showChiarella && CHIARELLA in vm.byPkg
     val money = vm.prefs.showMoney && MONEY in vm.byPkg
-    val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger || vm.prefs.showRotation || chiarella || money
+    val gemini = vm.prefs.showGemini && GEMINI in vm.byPkg
+    val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger || vm.prefs.showRotation || chiarella || money || gemini
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     // Modalità classica: niente Libreria, lo spazio privato si apre tenendo premuto in alto (orologio o fascia vuota).
     var privateOpen by remember { mutableStateOf(false) }
@@ -168,7 +169,7 @@ fun HomePage(vm: KansoViewModel) {
             label = "editBar",
             modifier = Modifier.padding(top = if (landscape) 8.dp else 20.dp).heightIn(min = 48.dp),
         ) { bar ->
-            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape, chiarella, money, openPrivate)
+            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape, chiarella, money, gemini, openPrivate)
             else if (bar == TopBar.EDIT) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.settingsOpen = true }
@@ -234,7 +235,7 @@ private enum class TopBar { NONE, CLOCK, EDIT }
 
 /** Orologio facoltativo: ore e data, aggiornati allo scoccare di ogni minuto. Accanto, timer e cronometri attivi. */
 @Composable
-private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chiarella: Boolean, money: Boolean, onLongPress: (() -> Unit)?) {
+private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chiarella: Boolean, money: Boolean, gemini: Boolean, onLongPress: (() -> Unit)?) {
     val chronos = Chrono.active
     val now by produceState(System.currentTimeMillis(), chronos.isEmpty()) {
         while (true) {
@@ -261,6 +262,7 @@ private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chia
                 if (vm.prefs.showRotation) RotationButton(vm)
                 if (chiarella) ChiarellaButton(vm)
                 if (money) MoneyButton(vm)
+                if (gemini) GeminiButton(vm)
             }
             // In verticale accanto all'orologio, in riga rubano larghezza all'ora e la mandano a capo: vanno in colonna.
             if (toggles) {
