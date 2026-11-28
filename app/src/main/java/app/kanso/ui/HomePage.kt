@@ -115,8 +115,10 @@ fun HomePage(vm: KansoViewModel) {
     val chiarella = vm.prefs.showChiarella && CHIARELLA in vm.byPkg
     val money = vm.prefs.showMoney && MONEY in vm.byPkg
     val gemini = vm.prefs.showGemini && GEMINI in vm.byPkg
-    val toggles = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger || vm.prefs.showRotation || chiarella || money || gemini
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val anyToggle = vm.prefs.showTorch && hasTorch || vm.prefs.showRinger || vm.prefs.showRotation || chiarella || money || gemini
+    // In orizzontale i pulsanti stanno sopra i riquadri, non nella barra in alto: lì rubano spazio all'orologio e all'agenda.
+    val toggles = anyToggle && !landscape
     // Modalità classica: niente Libreria, lo spazio privato si apre tenendo premuto in alto (orologio o fascia vuota).
     var privateOpen by remember { mutableStateOf(false) }
     val openPrivate = if (vm.prefs.classic && vm.privateUser != null) ({ privateOpen = true }) else null
@@ -169,7 +171,7 @@ fun HomePage(vm: KansoViewModel) {
             label = "editBar",
             modifier = Modifier.padding(top = if (landscape) 8.dp else 20.dp).heightIn(min = 48.dp),
         ) { bar ->
-            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape, chiarella, money, gemini, openPrivate)
+            if (bar == TopBar.CLOCK) Clock(vm, toggles, landscape, openPrivate) { m, a -> QuickButtons(vm, chiarella, money, gemini, m, a) }
             else if (bar == TopBar.EDIT) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconCircle(Icons.Rounded.Tune, "Impostazioni") { vm.settingsOpen = true }
@@ -218,6 +220,7 @@ fun HomePage(vm: KansoViewModel) {
         }
         // In fondo, al centro, ci sono i pallini delle pagine: i riquadri si fermano poco sopra.
         Column(Modifier.weight(0.58f).fillMaxHeight().padding(bottom = 24.dp)) {
+            if (anyToggle && !vm.editing) QuickButtons(vm, chiarella, money, gemini, Modifier.fillMaxWidth().padding(top = 16.dp), Alignment.End)
             WorkBar(vm)
             tiles(Modifier.weight(1f))
         }
@@ -233,9 +236,22 @@ fun HomePage(vm: KansoViewModel) {
 
 private enum class TopBar { NONE, CLOCK, EDIT }
 
+/** Pulsanti rapidi in una riga sola: torcia, suoneria, rotazione e scorciatoie alle app. */
+@Composable
+private fun QuickButtons(vm: KansoViewModel, chiarella: Boolean, money: Boolean, gemini: Boolean, modifier: Modifier, align: Alignment.Horizontal) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp, align)) {
+        if (vm.prefs.showTorch) TorchButton()
+        if (vm.prefs.showRinger) RingerButton(vm)
+        if (vm.prefs.showRotation) RotationButton(vm)
+        if (chiarella) ChiarellaButton(vm)
+        if (money) MoneyButton(vm)
+        if (gemini) GeminiButton(vm)
+    }
+}
+
 /** Orologio facoltativo: ore e data, aggiornati allo scoccare di ogni minuto. Accanto, timer e cronometri attivi. */
 @Composable
-private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chiarella: Boolean, money: Boolean, gemini: Boolean, onLongPress: (() -> Unit)?) {
+private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, onLongPress: (() -> Unit)?, buttons: @Composable (Modifier, Alignment.Horizontal) -> Unit) {
     val chronos = Chrono.active
     val now by produceState(System.currentTimeMillis(), chronos.isEmpty()) {
         while (true) {
@@ -243,8 +259,10 @@ private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chia
             delay(if (chronos.isEmpty()) 60_000 - value % 60_000 else 1_000 - value % 1_000)
         }
     }
-    Row(Modifier.fillMaxWidth().padding(top = if (landscape) 8.dp else 24.dp), verticalAlignment = Alignment.Bottom) {
-        if (vm.prefs.showClock) {
+    val chips = @Composable { chronos.take(2).forEach { ChronoChip(it, now) { vm.launch(it.pkg) } } }
+    // Con l'orologio i pulsanti vanno in una riga sotto la data: accanto all'ora la stringevano o allungavano la barra.
+    if (vm.prefs.showClock) Column(Modifier.fillMaxWidth().padding(top = if (landscape) 8.dp else 24.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
             val time = remember(now / 60_000) { SimpleDateFormat("HH:mm", Locale.ITALIAN).format(Date(now)) }
             val date = remember(now / 60_000) { SimpleDateFormat("EEEE d MMMM", Locale.ITALIAN).format(Date(now)) }
             Column(Modifier.weight(1f).pressable(onLongPress, pressedScale = 0.97f) { vm.start(Intent(AlarmClock.ACTION_SHOW_ALARMS)) }) {
@@ -253,37 +271,19 @@ private fun Clock(vm: KansoViewModel, toggles: Boolean, landscape: Boolean, chia
                 Text(time, style = MaterialTheme.typography.displayLarge.copy(fontSize = size.sp, lineHeight = (size + 4).sp), color = K.Paper, maxLines = 1, softWrap = false)
                 Eyebrow(date)
             }
+            Column(
+                Modifier.padding(bottom = 6.dp).animateContentSize(Motion.soft()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.End,
+            ) { chips() }
         }
-        val chips = @Composable { chronos.take(2).forEach { ChronoChip(it, now) { vm.launch(it.pkg) } } }
-        val buttons = @Composable {
-            val content = @Composable {
-                if (vm.prefs.showTorch) TorchButton()
-                if (vm.prefs.showRinger) RingerButton(vm)
-                if (vm.prefs.showRotation) RotationButton(vm)
-                if (chiarella) ChiarellaButton(vm)
-                if (money) MoneyButton(vm)
-                if (gemini) GeminiButton(vm)
-            }
-            // In verticale accanto all'orologio, in riga rubano larghezza all'ora e la mandano a capo: vanno in colonna.
-            if (toggles) {
-                // Al massimo tre per colonna: con Chiarella e Money la colonna non si allunga troppo.
-                if (vm.prefs.showClock && !landscape) androidx.compose.foundation.layout.FlowColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachColumn = 3,
-                ) { content() }
-                else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { content() }
-            }
-        }
-        // Accanto all'orologio in colonna, coi pulsanti sotto; da soli, in riga coi pulsanti a destra.
-        if (vm.prefs.showClock) Column(
-            Modifier.padding(bottom = 6.dp).animateContentSize(Motion.soft()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.End,
-        ) { chips(); buttons() }
-        else {
-            Row(Modifier.animateContentSize(Motion.soft()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
-            Spacer(Modifier.weight(1f))
-            buttons()
-        }
+        if (toggles) buttons(Modifier.padding(top = 16.dp), Alignment.Start)
+    }
+    // Da soli, in riga coi pulsanti a destra.
+    else Row(Modifier.fillMaxWidth().padding(top = if (landscape) 8.dp else 24.dp), verticalAlignment = Alignment.Bottom) {
+        Row(Modifier.animateContentSize(Motion.soft()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
+        Spacer(Modifier.weight(1f))
+        if (toggles) buttons(Modifier, Alignment.End)
     }
 }
 
